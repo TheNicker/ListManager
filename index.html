@@ -1,0 +1,781 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Schema-Driven List</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --ink: #202124;
+      --muted: #535f73;
+      --line: #d4dde0;
+      --paper: #fff;
+      --canvas: #f5f8fb;
+      --accent: #3f51b5;
+      --accent-soft: #f0f4ff;
+      --danger: #a33a31;
+      --danger-soft: #fff0ed;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      padding: 20px;
+      background: var(--canvas);
+      color: var(--ink);
+      font: 16px/1.5 'Segoe UI', sans-serif;
+    }
+    main { width: 100%; margin: 0 auto; }
+    h2 { margin: 0; font-size: 24px; font-weight: 650; }
+    .toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin: 18px 0 14px;
+    }
+    .toolbar-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+    button, input { font: inherit; }
+    button {
+      min-height: 38px;
+      padding: 7px 12px;
+      border: 1px solid var(--line);
+      border-radius: 4px;
+      background: var(--paper);
+      color: var(--ink);
+      cursor: pointer;
+    }
+    button:hover:not(:disabled) { border-color: var(--accent); }
+    button:focus-visible, input:focus-visible { outline: 3px solid #9ba8ec; outline-offset: 2px; }
+    button:disabled { opacity: .5; cursor: not-allowed; }
+    .primary-button { border-color: var(--accent); background: var(--accent); color: #fff; }
+    .primary-button:hover:not(:disabled) { background: #1a237e; }
+    #addRecordButton { font-size: 19px; font-weight: 600; min-width: 42px; padding: 4px 10px; }
+    .quick-delete-control { display: inline-flex; align-items: center; gap: 7px; min-height: 38px; cursor: pointer; }
+    .quick-delete-control input { width: 18px; height: 18px; margin: 0; accent-color: var(--danger); }
+    .quick-delete-control input:checked + span { color: var(--danger); font-weight: 600; }
+    #quickDeleteStatus { color: var(--danger); font-size: 13px; }
+    #searchBox {
+      width: min(340px, 100%);
+      min-height: 40px;
+      padding: 8px 12px;
+      border: 1px solid var(--line);
+      border-radius: 4px;
+      background: var(--paper);
+    }
+    .table-scroll { max-height: 72vh; overflow-x: hidden; overflow-y: auto; border: 1px solid var(--line); background: var(--paper); }
+    .table-scroll.has-horizontal-overflow { overflow-x: auto; }
+    .table-scroll.is-text-blurred tbody td:not(.ordinal-cell):not(:last-child) { filter: blur(5px); }
+    table { width: 100%; table-layout: fixed; border-collapse: collapse; }
+    th, td { padding: 4px 10px; border-bottom: 1px solid #dfe4ec; text-align: left; vertical-align: middle; white-space: nowrap; }
+    td { overflow: hidden; text-overflow: ellipsis; }
+    th { position: sticky; top: 0; z-index: 3; background: #3f51b5; color: #fff; white-space: nowrap; font-weight: 650; }
+    tbody tr:nth-child(even) { background: #f0f4ff; }
+    tbody tr:nth-child(odd) { background: #fff; }
+    tbody tr:hover { background: #a5d6a7; }
+    tbody td { font-weight: 500; }
+    .ordinal-cell { width: 56px; min-width: 56px; max-width: 56px; color: #596275; font-variant-numeric: tabular-nums; font-weight: 600; text-align: left; }
+    th.ordinal-cell { color: #fff; }
+    .sort-button {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      min-height: 24px;
+      padding: 2px 3px;
+      border: 0;
+      background: transparent;
+      color: inherit;
+      font-weight: inherit;
+    }
+    .sort-glyph { width: 18px; color: #dbe0ff; font-size: 13px; text-align: center; }
+    .sort-button[aria-pressed="true"] .sort-glyph { color: #fff; font-weight: 800; }
+    .column-resize-handle {
+      position: absolute;
+      z-index: 2;
+      top: 0;
+      right: -5px;
+      width: 12px;
+      min-height: 0;
+      height: 100%;
+      padding: 0;
+      border: 0;
+      border-radius: 0;
+      background: transparent;
+      cursor: col-resize;
+      touch-action: none;
+    }
+    .column-resize-handle::after {
+      position: absolute;
+      top: 50%;
+      left: 5px;
+      width: 2px;
+      height: 17px;
+      background: rgb(255 255 255 / 45%);
+      content: '';
+      transform: translateY(-50%);
+    }
+    th:last-child .column-resize-handle { right: 0; }
+    th:last-child .column-resize-handle::after { right: 3px; left: auto; }
+    th:hover .column-resize-handle::after,
+    .column-resize-handle:focus-visible::after { background: #fff; }
+    body.resizing-columns { cursor: col-resize; user-select: none; }
+    .cell-value { display: inline-flex; align-items: center; gap: 8px; min-width: 0; max-width: 100%; overflow: hidden; }
+    .cell-value > span:first-child { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+    .copy-button { flex: 0 0 20px; min-width: 20px; min-height: 20px; padding: 1px; border-color: transparent; background: transparent; color: var(--accent); font-size: 11px; line-height: 1; opacity: .72; }
+    button.copy-button:hover:not(:disabled) { border-color: transparent; background: var(--accent-soft); }
+    .cell-value:hover .copy-button { opacity: 1; }
+    .row-actions { display: flex; gap: 6px; white-space: nowrap; }
+    .row-actions button { min-height: 28px; padding: 3px 8px; }
+    .record-count { margin: 0 0 8px; color: #303b55; font-size: 14px; font-weight: 600; }
+    .remove-button { color: var(--danger); }
+    .edit-input {
+      width: 100%;
+      min-width: 0;
+      min-height: 30px;
+      padding: 4px 7px;
+      border: 1px solid #aab9b8;
+      border-radius: 3px;
+      background: white;
+      white-space: nowrap;
+    }
+    .edit-input[type="checkbox"] { width: 18px; min-width: 18px; min-height: 18px; }
+    tr.is-editing { background: #f0f7f4 !important; }
+    .empty-row { color: var(--muted); text-align: center; }
+    #toast {
+      position: fixed;
+      right: 22px;
+      bottom: 22px;
+      z-index: 5;
+      max-width: min(360px, calc(100vw - 32px));
+      padding: 10px 14px;
+      border-radius: 4px;
+      background: #243b38;
+      color: #fff;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity .18s ease;
+    }
+    #toast.show { opacity: 1; }
+    mark { padding: 1px 2px; background: #f5d88d; color: #2e2818; }
+    @media (max-width: 640px) {
+      body { padding: 16px; }
+      .toolbar { align-items: stretch; }
+      .toolbar-actions { width: 100%; }
+      #searchBox { width: 100%; }
+      th, td { padding: 6px 8px; }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <h2 id="listTitle">Loading list...</h2>
+    <div class="toolbar">
+      <input type="search" id="searchBox" placeholder="Search records..." aria-label="Search records">
+      <div class="toolbar-actions">
+        <span id="quickDeleteStatus" aria-live="polite"></span>
+        <label class="quick-delete-control"><input id="quickDeleteCheckbox" type="checkbox"><span>Quick delete</span></label>
+        <button id="blurToggleButton" type="button" aria-pressed="false" title="Blur list text">Blur list</button>
+        <button id="addRecordButton" class="primary-button" type="button" aria-label="Add record" title="Add record">+</button>
+      </div>
+    </div>
+    <p id="recordCount" class="record-count" aria-live="polite"></p>
+    <div id="tableContainer">Loading <code>data.json</code>...</div>
+  </main>
+  <div id="toast" role="status" aria-live="polite"></div>
+
+  <script>
+    let listDocument = { schema: { title: 'List', fields: [] }, records: [] };
+    let listLoadedFromGzip = false;
+    let editPasswordRequired = false;
+    let editPasswordHash = null;
+    let allowClientExit = false;
+    let editState = null;
+    let quickDeleteEnabled = false;
+    let listTextBlurred = false;
+    let sortState = { key: null, direction: 1 };
+    let columnWidths = {};
+    let activeColumnResize = null;
+    let toastTimeout;
+
+    function showToast(message) {
+      const toast = document.getElementById('toast');
+      toast.textContent = message;
+      toast.classList.add('show');
+      clearTimeout(toastTimeout);
+      toastTimeout = setTimeout(() => toast.classList.remove('show'), 2200);
+    }
+
+    function fetchData() {
+      let loadedFromGzip = true;
+      fetch('data.json.gz')
+        .then(async res => {
+          if (res.status === 404) {
+            loadedFromGzip = false;
+            res = await fetch('data.json');
+          }
+          if (!res.ok) throw new Error(`HTTP ${res.status}`);
+          editPasswordRequired = res.headers.get('X-Edit-Password-Required') === 'true';
+          allowClientExit = res.headers.get('X-Allow-Client-Exit') === 'true';
+          listLoadedFromGzip = loadedFromGzip;
+          return res.json();
+        })
+        .then(data => {
+          if (!data.schema || !Array.isArray(data.schema.fields) || !Array.isArray(data.records)) {
+            throw new Error('Expected schema.fields and records in the list data');
+          }
+          listDocument = data;
+          loadColumnWidths();
+          document.title = data.schema.title || 'List';
+          document.getElementById('listTitle').textContent = data.schema.title || 'List';
+          renderTable();
+        })
+        .catch(err => {
+          document.getElementById('tableContainer').innerHTML =
+            `<p role="alert">Failed to load data.json: ${escapeHtml(err.message)}</p>`;
+        });
+    }
+
+    function escapeHtml(value) {
+      return String(value).replace(/[&<>"']/g, character => ({
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        '"': '&quot;',
+        "'": '&#39;'
+      })[character]);
+    }
+
+    function highlight(value, query) {
+      const text = escapeHtml(value);
+      if (!query) return text;
+      const escapedQuery = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      return text.replace(new RegExp(`(${escapedQuery})`, 'gi'), '<mark>$1</mark>');
+    }
+
+    function linkify(value, query) {
+      const text = String(value ?? '');
+      const urlPattern = /https?:\/\/[^\s<>"']+|www\.[^\s<>"']+/gi;
+      let html = '';
+      let lastIndex = 0;
+
+      for (const match of text.matchAll(urlPattern)) {
+        let url = match[0];
+        let trailingPunctuation = '';
+        while (/[.,!?;:)}\]]$/.test(url)) {
+          trailingPunctuation = url.slice(-1) + trailingPunctuation;
+          url = url.slice(0, -1);
+        }
+
+        html += highlight(text.slice(lastIndex, match.index), query);
+        const href = /^www\./i.test(url) ? `https://${url}` : url;
+        html += `<a href="${escapeHtml(href)}" target="_blank" rel="noopener noreferrer">${highlight(url, query)}</a>${escapeHtml(trailingPunctuation)}`;
+        lastIndex = match.index + match[0].length;
+      }
+
+      return html + highlight(text.slice(lastIndex), query);
+    }
+
+    function getColumnWidthStorageKey() {
+      const fieldKeys = listDocument.schema.fields.map(field => field.key).join('|');
+      return `schema-list-column-widths:${listDocument.schema.title || 'List'}:${fieldKeys}`;
+    }
+
+    function clampColumnWidth(width) {
+      return Math.max(80, Math.min(900, width));
+    }
+
+    function loadColumnWidths() {
+      try {
+        const savedWidths = JSON.parse(localStorage.getItem(getColumnWidthStorageKey()) || '{}');
+        columnWidths = Object.fromEntries(Object.entries(savedWidths)
+          .filter(([, width]) => Number.isFinite(Number(width)))
+          .map(([key, width]) => [key, clampColumnWidth(Number(width))]));
+      } catch {
+        columnWidths = {};
+      }
+    }
+
+    function saveColumnWidths() {
+      try {
+        localStorage.setItem(getColumnWidthStorageKey(), JSON.stringify(columnWidths));
+      } catch {
+        showToast('Column widths could not be saved in this browser.');
+      }
+    }
+
+    function getDefaultColumnWidth(field) {
+      const longestValue = listDocument.records.reduce((longest, record) => {
+        const value = record[field.key];
+        return Math.max(longest, value === null || value === undefined ? 0 : String(value).length);
+      }, field.label.length);
+      return clampColumnWidth(Math.max(120, Math.min(440, longestValue * 8 + 76)));
+    }
+
+    function getRenderedColumnWidths() {
+      const fields = listDocument.schema.fields;
+      const fixedWidths = { __ordinal: 56, __actions: 184 };
+      const columns = fields.map(field => ({
+          key: field.key,
+          minWidth: 96,
+          preferredWidth: getDefaultColumnWidth(field),
+          saved: Object.prototype.hasOwnProperty.call(columnWidths, field.key)
+        }));
+      const availableWidth = Math.max(0, document.getElementById('tableContainer').clientWidth - 2 - fixedWidths.__ordinal - fixedWidths.__actions);
+      const savedWidth = columns.reduce((total, column) =>
+        total + (column.saved ? columnWidths[column.key] : 0), 0
+      );
+      const flexibleColumns = columns.filter(column => !column.saved);
+      const preferredFlexibleWidth = flexibleColumns.reduce((total, column) => total + column.preferredWidth, 0);
+      const flexibleWidth = Math.max(0, availableWidth - savedWidth);
+      const minimumFlexibleWidth = flexibleColumns.reduce((total, column) => total + column.minWidth, 0);
+      const preferredFlexibleExtra = preferredFlexibleWidth - minimumFlexibleWidth;
+
+      flexibleColumns.forEach(column => {
+        if (preferredFlexibleWidth > flexibleWidth && preferredFlexibleWidth > 0) {
+          const flexibleExtra = Math.max(0, flexibleWidth - minimumFlexibleWidth);
+          column.width = column.minWidth + (preferredFlexibleExtra > 0
+            ? Math.floor((column.preferredWidth - column.minWidth) * flexibleExtra / preferredFlexibleExtra)
+            : 0);
+        } else {
+          column.width = column.preferredWidth;
+        }
+      });
+
+      const currentWidth = savedWidth + flexibleColumns.reduce((total, column) => total + column.width, 0);
+      if (currentWidth < availableWidth && flexibleColumns.length) {
+        const extraWidth = Math.floor((availableWidth - currentWidth) / flexibleColumns.length);
+        flexibleColumns.forEach(column => column.width += extraWidth);
+      }
+
+      return {
+        ...Object.fromEntries(columns.map(column => [
+          column.key,
+          column.saved ? columnWidths[column.key] : column.width
+        ])),
+        ...fixedWidths
+      };
+    }
+
+    function getRenderedColumnWidth(key) {
+      const column = document.querySelector(`col[data-column-key="${CSS.escape(key)}"]`);
+      return column ? column.getBoundingClientRect().width : getRenderedColumnWidths()[key];
+    }
+
+    function setColumnWidth(key, width) {
+      const nextWidth = clampColumnWidth(width);
+      columnWidths[key] = nextWidth;
+      const column = document.querySelector(`col[data-column-key="${CSS.escape(key)}"]`);
+      const handle = document.querySelector(`[data-action="resize-column"][data-resize-key="${CSS.escape(key)}"]`);
+      if (column) column.style.width = `${nextWidth}px`;
+      if (handle) handle.setAttribute('aria-valuenow', String(nextWidth));
+      const table = document.querySelector('#tableContainer table');
+      if (table) {
+        const totalWidth = [...table.querySelectorAll('col[data-column-key]')]
+          .reduce((total, item) => total + item.getBoundingClientRect().width, 0);
+        table.style.width = `${Math.max(document.getElementById('tableContainer').clientWidth - 2, totalWidth)}px`;
+        updateHorizontalOverflow();
+      }
+    }
+
+    function makeResizeHandle(key, label, width) {
+      return `<button class="column-resize-handle" type="button" data-action="resize-column" data-resize-key="${escapeHtml(key)}" aria-label="Resize ${escapeHtml(label)} column" aria-valuemin="80" aria-valuemax="900" aria-valuenow="${width}" title="Drag to resize; use left and right arrow keys"></button>`;
+    }
+
+    function updateHorizontalOverflow() {
+      const scroller = document.querySelector('.table-scroll');
+      if (scroller) {
+        scroller.classList.toggle('has-horizontal-overflow', scroller.scrollWidth > scroller.clientWidth + 1);
+      }
+    }
+
+    function getInputType(field) {
+      return ['text', 'email', 'number', 'date', 'checkbox'].includes(field.type) ? field.type : 'text';
+    }
+
+    function booleanValue(value) {
+      return value === true || value === 1 || (typeof value === 'string' && value.toLowerCase() === 'true');
+    }
+
+    function makeEmptyRecord() {
+      const record = {};
+      listDocument.schema.fields.forEach(field => {
+        record[field.key] = getInputType(field) === 'checkbox' ? false : '';
+      });
+      return record;
+    }
+
+    function beginAdd() {
+      if (editState) return;
+      document.getElementById('searchBox').value = '';
+      editState = { index: null, isNew: true, draft: makeEmptyRecord() };
+      renderTable();
+      document.querySelector('.is-editing .edit-input')?.focus();
+    }
+
+    function beginEdit(index) {
+      if (editState) return;
+      editState = {
+        index,
+        isNew: false,
+        draft: { ...listDocument.records[index] }
+      };
+      renderTable();
+      document.querySelector('.is-editing .edit-input')?.focus();
+    }
+
+    function cancelEdit() {
+      editState = null;
+      renderTable();
+    }
+
+    function renderInput(field, value) {
+      const type = getInputType(field);
+      const required = field.required ? ' required' : '';
+      const checked = type === 'checkbox' && booleanValue(value) ? ' checked' : '';
+      const inputValue = type === 'checkbox' ? '' : ` value="${escapeHtml(value ?? '')}"`;
+      return `<input class="edit-input" data-field-key="${escapeHtml(field.key)}" aria-label="${escapeHtml(field.label)}" type="${type}"${inputValue}${checked}${required}>`;
+    }
+
+    function compareValues(left, right, field) {
+      const leftValue = left[field.key];
+      const rightValue = right[field.key];
+      const leftEmpty = leftValue === null || leftValue === undefined || leftValue === '';
+      const rightEmpty = rightValue === null || rightValue === undefined || rightValue === '';
+      if (leftEmpty || rightEmpty) return leftEmpty === rightEmpty ? 0 : (leftEmpty ? 1 : -1);
+
+      if (field.type === 'number') {
+        return Number(leftValue) - Number(rightValue);
+      }
+      if (field.type === 'date') {
+        const leftDate = Date.parse(leftValue);
+        const rightDate = Date.parse(rightValue);
+        if (Number.isFinite(leftDate) && Number.isFinite(rightDate)) return leftDate - rightDate;
+      }
+      if (field.type === 'checkbox') {
+        return Number(booleanValue(leftValue)) - Number(booleanValue(rightValue));
+      }
+      return String(leftValue).localeCompare(String(rightValue), undefined, { numeric: true, sensitivity: 'base' });
+    }
+
+    function visibleRecords() {
+      const fields = listDocument.schema.fields;
+      const query = document.getElementById('searchBox').value.trim().toLowerCase();
+      const records = listDocument.records
+        .map((record, index) => ({ record, index }))
+        .filter(({ record }) => !query || fields.some(field => {
+          const value = record[field.key];
+          return value !== null && value !== undefined && String(value).toLowerCase().includes(query);
+        }));
+
+      if (sortState.key) {
+        const sortField = fields.find(field => field.key === sortState.key);
+        if (sortField) {
+          records.sort((left, right) =>
+            compareValues(left.record, right.record, sortField) * sortState.direction || left.index - right.index
+          );
+        }
+      }
+      return records;
+    }
+
+    function renderTable() {
+      const fields = listDocument.schema.fields;
+      const records = visibleRecords();
+      const query = document.getElementById('searchBox').value.trim();
+      const draftCount = editState?.isNew ? 1 : 0;
+      const displayedCount = records.length + draftCount;
+      const totalCount = listDocument.records.length + draftCount;
+      document.getElementById('recordCount').textContent = query
+        ? `${displayedCount} of ${totalCount} records displayed`
+        : `${totalCount} records displayed`;
+      const widths = getRenderedColumnWidths();
+      const totalColumnWidth = Object.values(widths).reduce((total, width) => total + width, 0);
+      const tableWidth = Math.max(document.getElementById('tableContainer').clientWidth - 2, totalColumnWidth);
+      const sortGlyph = direction => direction === 1 ? '▲' : '▼';
+      let table = `<div class="table-scroll${listTextBlurred ? ' is-text-blurred' : ''}"><table style="width:${tableWidth}px"><colgroup>`;
+
+      table += '<col data-column-key="__ordinal" style="width:56px">';
+      fields.forEach(field => {
+        const width = widths[field.key];
+        table += `<col data-column-key="${escapeHtml(field.key)}" style="width:${width}px">`;
+      });
+      const actionsWidth = widths.__actions;
+      table += `<col data-column-key="__actions" style="width:${actionsWidth}px"></colgroup><thead><tr><th scope="col" class="ordinal-cell" aria-label="Row number">#</th>`;
+
+      fields.forEach(field => {
+        const active = sortState.key === field.key;
+        const direction = active ? (sortState.direction === 1 ? 'ascending' : 'descending') : 'none';
+        const glyph = active ? sortGlyph(sortState.direction) : '⇅';
+        const width = widths[field.key];
+        table += `<th aria-sort="${direction}"><button class="sort-button" type="button" data-action="sort" data-sort-key="${escapeHtml(field.key)}" aria-pressed="${active}" aria-label="Sort by ${escapeHtml(field.label)} ${active ? direction : ''}"><span>${escapeHtml(field.label)}</span><span class="sort-glyph" aria-hidden="true">${glyph}</span></button>${makeResizeHandle(field.key, field.label, width)}</th>`;
+      });
+      table += '<th scope="col">Actions</th></tr></thead><tbody>';
+
+      if (!records.length && !editState?.isNew) {
+        table += `<tr><td class="empty-row" colspan="${fields.length + 2}">No records found.</td></tr>`;
+      }
+
+      records.forEach(({ record, index }, displayIndex) => {
+        const isEditing = editState && !editState.isNew && editState.index === index;
+        table += `<tr data-record-index="${index}"${isEditing ? ' class="is-editing"' : ''}>`;
+        table += `<td class="ordinal-cell">${displayIndex + 1}</td>`;
+        fields.forEach(field => {
+          if (isEditing) {
+            table += `<td>${renderInput(field, editState.draft[field.key])}</td>`;
+          } else {
+            const rawValue = record[field.key] ?? '';
+            const displayValue = field.type === 'checkbox' ? (booleanValue(rawValue) ? 'Yes' : 'No') : rawValue;
+            const copyControl = String(rawValue) === '' ? '' : `<button class="copy-button" type="button" data-action="copy" data-record-index="${index}" data-field-key="${escapeHtml(field.key)}" aria-label="Copy ${escapeHtml(field.label)}" title="Copy ${escapeHtml(field.label)}">📋</button>`;
+            const cellTitle = listTextBlurred ? '' : ` title="${escapeHtml(rawValue)}"`;
+            table += `<td${cellTitle}><span class="cell-value"><span dir="auto">${linkify(displayValue, query)}</span>${copyControl}</span></td>`;
+          }
+        });
+
+        if (isEditing) {
+          table += `<td><div class="row-actions"><button class="primary-button" type="button" data-action="save-row" data-record-index="${index}">Save</button><button type="button" data-action="cancel-edit">Cancel</button></div></td></tr>`;
+        } else {
+          const disabled = editState ? ' disabled' : '';
+          table += `<td><div class="row-actions"><button type="button" data-action="edit-row" data-record-index="${index}"${disabled}>Edit</button><button class="remove-button" type="button" data-action="remove-row" data-record-index="${index}"${disabled}>Remove</button></div></td></tr>`;
+        }
+      });
+
+      if (editState?.isNew) {
+        table += '<tr class="is-editing" data-new-record="true">';
+        table += `<td class="ordinal-cell">${records.length + 1}</td>`;
+        fields.forEach(field => table += `<td>${renderInput(field, editState.draft[field.key])}</td>`);
+        table += '<td><div class="row-actions"><button class="primary-button" type="button" data-action="save-row">Save</button><button type="button" data-action="cancel-edit">Cancel</button></div></td></tr>';
+      }
+
+      table += '</tbody></table></div>';
+      document.getElementById('tableContainer').innerHTML = table;
+      updateHorizontalOverflow();
+      document.getElementById('addRecordButton').disabled = Boolean(editState);
+      document.getElementById('searchBox').disabled = Boolean(editState);
+    }
+
+    function readEditedRecord(row) {
+      const record = editState.isNew ? {} : { ...listDocument.records[editState.index] };
+      for (const field of listDocument.schema.fields) {
+        const input = row.querySelector(`[data-field-key="${CSS.escape(field.key)}"]`);
+        if (!input.checkValidity()) {
+          input.reportValidity();
+          return null;
+        }
+        if (getInputType(field) === 'checkbox') {
+          record[field.key] = input.checked;
+        } else if (getInputType(field) === 'number') {
+          record[field.key] = input.value === '' ? '' : Number(input.value);
+        } else {
+          record[field.key] = input.value.trim();
+        }
+      }
+      return record;
+    }
+
+    function saveEditedRow(row) {
+      const record = readEditedRecord(row);
+      if (!record) return;
+      const previousRecords = [...listDocument.records];
+      if (editState.isNew) {
+        listDocument.records.push(record);
+      } else {
+        listDocument.records[editState.index] = record;
+      }
+      saveListOnServer(previousRecords, () => { editState = null; });
+    }
+
+    function deleteRecord(index) {
+      if (!quickDeleteEnabled && !window.confirm('Remove this record? This cannot be undone.')) return;
+      const previousRecords = [...listDocument.records];
+      listDocument.records.splice(index, 1);
+      saveListOnServer(previousRecords);
+    }
+
+    async function hashEditPassword(password) {
+      if (!window.crypto?.subtle) {
+        throw new Error('Password hashing requires HTTPS or localhost.');
+      }
+      const input = new TextEncoder().encode(password);
+      const digest = await window.crypto.subtle.digest('SHA-256', input);
+      return Array.from(new Uint8Array(digest), byte => byte.toString(16).padStart(2, '0')).join('');
+    }
+
+    async function saveListOnServer(previousRecords, onSaved) {
+      try {
+        let passwordHash = editPasswordHash;
+        if (editPasswordRequired && !passwordHash) {
+          const password = window.prompt('Enter the password to save this change:');
+          if (password === null) {
+            listDocument.records = previousRecords;
+            renderTable();
+            return;
+          }
+          passwordHash = await hashEditPassword(password);
+        }
+
+        const res = await fetch('/update-list', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-List-Loaded-From-Gzip': String(listLoadedFromGzip),
+            ...(passwordHash ? { 'X-Edit-Password': passwordHash } : {})
+          },
+          body: JSON.stringify(listDocument)
+        });
+        if (res.status === 401) {
+          editPasswordHash = null;
+          throw new Error('Incorrect password');
+        }
+        if (!res.ok) throw new Error('Failed to save list');
+        editPasswordHash = passwordHash;
+        if (onSaved) onSaved();
+        renderTable();
+        showToast('List updated.');
+      } catch (err) {
+        listDocument.records = previousRecords;
+        renderTable();
+        showToast(`Error: ${err.message}`);
+      }
+    }
+
+    async function copyField(index, fieldKey) {
+      const value = listDocument.records[index][fieldKey] ?? '';
+      try {
+        await navigator.clipboard.writeText(String(value));
+        showToast('Field copied.');
+      } catch {
+        showToast('Clipboard access failed.');
+      }
+    }
+
+    document.getElementById('addRecordButton').addEventListener('click', beginAdd);
+
+    document.getElementById('blurToggleButton').addEventListener('click', function () {
+      listTextBlurred = !listTextBlurred;
+      this.setAttribute('aria-pressed', String(listTextBlurred));
+      this.textContent = listTextBlurred ? 'Show list' : 'Blur list';
+      this.title = listTextBlurred ? 'Show list text' : 'Blur list text';
+      renderTable();
+    });
+
+    document.getElementById('quickDeleteCheckbox').addEventListener('change', function () {
+      if (this.checked) {
+        const enabled = window.confirm('Quick delete removes records immediately without asking again. Enable it?');
+        if (!enabled) {
+          this.checked = false;
+          return;
+        }
+        quickDeleteEnabled = true;
+      } else {
+        quickDeleteEnabled = false;
+      }
+      document.getElementById('quickDeleteStatus').textContent = quickDeleteEnabled
+        ? 'Warning: removals will be immediate.'
+        : '';
+    });
+
+    document.getElementById('searchBox').addEventListener('input', renderTable);
+
+    document.getElementById('tableContainer').addEventListener('click', function (event) {
+      const button = event.target.closest('button[data-action]');
+      if (!button || button.disabled) return;
+      const index = Number(button.dataset.recordIndex);
+      switch (button.dataset.action) {
+        case 'sort': {
+          const key = button.dataset.sortKey;
+          sortState = {
+            key,
+            direction: sortState.key === key ? -sortState.direction : 1
+          };
+          renderTable();
+          break;
+        }
+        case 'edit-row':
+          beginEdit(index);
+          break;
+        case 'save-row':
+          saveEditedRow(button.closest('tr'));
+          break;
+        case 'cancel-edit':
+          cancelEdit();
+          break;
+        case 'remove-row':
+          deleteRecord(index);
+          break;
+        case 'copy':
+          copyField(index, button.dataset.fieldKey);
+          break;
+      }
+    });
+
+    document.getElementById('tableContainer').addEventListener('pointerdown', function (event) {
+      const handle = event.target.closest('[data-action="resize-column"]');
+      if (!handle || event.button !== 0) return;
+      const key = handle.dataset.resizeKey;
+      const field = listDocument.schema.fields.find(item => item.key === key);
+      const defaultWidth = field ? getDefaultColumnWidth(field) : 184;
+      activeColumnResize = {
+        key,
+        startX: event.clientX,
+        startWidth: getRenderedColumnWidth(key) || defaultWidth,
+        handle
+      };
+      try {
+        handle.setPointerCapture(event.pointerId);
+      } catch {
+      }
+      document.body.classList.add('resizing-columns');
+      event.preventDefault();
+    });
+
+    document.addEventListener('pointermove', function (event) {
+      if (!activeColumnResize) return;
+      setColumnWidth(activeColumnResize.key, activeColumnResize.startWidth + event.clientX - activeColumnResize.startX);
+    });
+
+    function endColumnResize() {
+      if (!activeColumnResize) return;
+      activeColumnResize = null;
+      document.body.classList.remove('resizing-columns');
+      saveColumnWidths();
+    }
+
+    document.addEventListener('pointerup', endColumnResize);
+    document.addEventListener('pointercancel', endColumnResize);
+    window.addEventListener('resize', function () {
+      if (editState) updateHorizontalOverflow();
+      else renderTable();
+    });
+
+    document.getElementById('tableContainer').addEventListener('keydown', function (event) {
+      const resizeHandle = event.target.closest('[data-action="resize-column"]');
+      if (resizeHandle && (event.key === 'ArrowLeft' || event.key === 'ArrowRight')) {
+        const direction = event.key === 'ArrowRight' ? 1 : -1;
+        const key = resizeHandle.dataset.resizeKey;
+        const field = listDocument.schema.fields.find(item => item.key === key);
+        event.preventDefault();
+        setColumnWidth(key, getRenderedColumnWidth(key) + direction * (event.shiftKey ? 40 : 12));
+        saveColumnWidths();
+        return;
+      }
+      if (!editState) return;
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        cancelEdit();
+      } else if (event.key === 'Enter' && event.target.matches('.edit-input:not([type="checkbox"])')) {
+        event.preventDefault();
+        saveEditedRow(event.target.closest('tr'));
+      }
+    });
+
+    window.addEventListener('pagehide', () => {
+      if (allowClientExit && navigator.sendBeacon) {
+        navigator.sendBeacon('/client-exit', '');
+      }
+    });
+
+    fetchData();
+  </script>
+</body>
+</html>
