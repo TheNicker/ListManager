@@ -4,6 +4,13 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Schema-Driven List</title>
+  <script>
+    try {
+      document.documentElement.dir = localStorage.getItem('schema-list-direction') === 'rtl' ? 'rtl' : 'ltr';
+    } catch {
+      document.documentElement.dir = 'ltr';
+    }
+  </script>
   <style>
     :root {
       color-scheme: light;
@@ -14,6 +21,7 @@
       --canvas: #f5f8fb;
       --accent: #3f51b5;
       --accent-soft: #f0f4ff;
+      --edit-accent: #ffb300;
       --danger: #a33a31;
       --danger-soft: #fff0ed;
     }
@@ -56,6 +64,8 @@
     .quick-delete-control input { width: 18px; height: 18px; margin: 0; accent-color: var(--danger); }
     .quick-delete-control input:checked + span { color: var(--danger); font-weight: 600; }
     #quickDeleteStatus { color: var(--danger); font-size: 13px; }
+    #directionToggleButton { font-weight: 700; letter-spacing: .04em; }
+    #directionToggleButton[aria-pressed="true"] { border-color: var(--accent); background: var(--accent); color: #fff; }
     #searchBox {
       width: min(340px, 100%);
       min-height: 40px;
@@ -68,14 +78,14 @@
     .table-scroll.has-horizontal-overflow { overflow-x: auto; }
     .table-scroll.is-text-blurred tbody td:not(.ordinal-cell):not(:last-child) { filter: blur(5px); }
     table { width: 100%; table-layout: fixed; border-collapse: collapse; }
-    th, td { padding: 4px 10px; border-bottom: 1px solid #dfe4ec; text-align: left; vertical-align: middle; white-space: nowrap; }
+    th, td { padding: 4px 10px; border-bottom: 1px solid #dfe4ec; text-align: start; vertical-align: middle; white-space: nowrap; }
     td { overflow: hidden; text-overflow: ellipsis; }
     th { position: sticky; top: 0; z-index: 3; background: #3f51b5; color: #fff; white-space: nowrap; font-weight: 650; }
     tbody tr:nth-child(even) { background: #f0f4ff; }
     tbody tr:nth-child(odd) { background: #fff; }
     tbody tr:hover { background: #a5d6a7; }
     tbody td { font-weight: 500; }
-    .ordinal-cell { width: 56px; min-width: 56px; max-width: 56px; color: #596275; font-variant-numeric: tabular-nums; font-weight: 600; text-align: left; }
+    .ordinal-cell { width: 56px; min-width: 56px; max-width: 56px; color: #596275; font-variant-numeric: tabular-nums; font-weight: 600; text-align: start; }
     th.ordinal-cell { color: #fff; }
     .sort-button {
       display: inline-flex;
@@ -94,7 +104,7 @@
       position: absolute;
       z-index: 2;
       top: 0;
-      right: -5px;
+      inset-inline-end: -5px;
       width: 12px;
       min-height: 0;
       height: 100%;
@@ -108,15 +118,15 @@
     .column-resize-handle::after {
       position: absolute;
       top: 50%;
-      left: 5px;
+      inset-inline-start: 5px;
       width: 2px;
       height: 17px;
       background: rgb(255 255 255 / 45%);
       content: '';
       transform: translateY(-50%);
     }
-    th:last-child .column-resize-handle { right: 0; }
-    th:last-child .column-resize-handle::after { right: 3px; left: auto; }
+    th:last-child .column-resize-handle { inset-inline-end: 0; }
+    th:last-child .column-resize-handle::after { inset-inline-end: 3px; inset-inline-start: auto; }
     th:hover .column-resize-handle::after,
     .column-resize-handle:focus-visible::after { background: #fff; }
     body.resizing-columns { cursor: col-resize; user-select: none; }
@@ -128,6 +138,7 @@
     .row-actions { display: flex; gap: 6px; white-space: nowrap; }
     .row-actions button { min-height: 28px; padding: 3px 8px; }
     .record-count { margin: 0 0 8px; color: #303b55; font-size: 14px; font-weight: 600; }
+    .record-count.mode-note { color: var(--accent); }
     .remove-button { color: var(--danger); }
     .edit-input {
       width: 100%;
@@ -140,11 +151,48 @@
       white-space: nowrap;
     }
     .edit-input[type="checkbox"] { width: 18px; min-width: 18px; min-height: 18px; }
+    .columns-tool { flex: 0 0 auto; width: 30px; min-width: 30px; min-height: 30px; padding: 0; border-color: rgb(255 255 255 / 45%); border-radius: 50%; background: rgb(255 255 255 / 14%); color: #fff; }
+    .columns-tool:hover:not(:disabled) { border-color: #fff; background: #fff; color: var(--accent); }
+    .columns-tool .tool-glyph { font-size: 15px; line-height: 1; }
+    .header-cell { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 6px 0; }
+    .header-cell-tools { flex-wrap: wrap; justify-content: flex-start; }
+    .header-cell-tools .row-actions { gap: 6px; }
+    .header-cell-tools .row-actions button { min-height: 30px; padding: 3px 11px; border-radius: 6px; font-size: 13px; }
+    .header-cell-tools .columns-caption { width: 100%; }
+    .columns-caption { font-size: 15px; }
+    .table-scroll.columns-editing { border-color: #b6c0ee; }
+    .columns-editing th { background: linear-gradient(180deg, #4757c6, #3646ab); box-shadow: inset 0 -3px 0 var(--edit-accent); }
+    .column-editor { display: flex; flex-direction: column; gap: 6px; padding: 7px 0 6px; }
+    .column-editor-top { display: flex; align-items: center; gap: 6px; }
+    .column-editor-bottom { display: flex; align-items: center; gap: 10px; }
+    .column-edit-input {
+      width: 100%;
+      min-width: 0;
+      min-height: 30px;
+      padding: 3px 8px;
+      border: 1px solid rgb(255 255 255 / 50%);
+      border-radius: 6px;
+      background: var(--paper);
+      color: var(--ink);
+      box-shadow: 0 1px 2px rgb(16 24 40 / 22%);
+    }
+    .column-edit-input:focus-visible { outline: 3px solid var(--edit-accent); outline-offset: 1px; }
+    .column-editor-bottom .column-edit-input { width: auto; min-height: 26px; padding: 1px 6px; font-size: 13px; }
+    .column-edit-required { display: inline-flex; align-items: center; gap: 5px; font-size: 12.5px; font-weight: 600; cursor: pointer; white-space: nowrap; }
+    .column-edit-required input { width: 15px; height: 15px; margin: 0; accent-color: var(--edit-accent); }
+    .column-edit-remove { flex: 0 0 auto; width: 30px; min-width: 30px; min-height: 30px; padding: 0; border-color: rgb(255 255 255 / 45%); border-radius: 6px; background: rgb(255 255 255 / 12%); color: #ffe2dd; font-size: 15px; font-weight: 700; line-height: 1; }
+    .column-edit-remove:hover:not(:disabled) { border-color: var(--danger); background: var(--danger); color: #fff; }
+    .header-actions-cell { white-space: nowrap; }
+    .header-actions-cell .row-actions { flex-wrap: wrap; gap: 6px; }
+    .header-actions-cell .row-actions button { min-height: 30px; padding: 3px 10px; font-size: 13px; border-radius: 6px; }
+    .header-actions-cell .row-actions .primary-button { box-shadow: 0 1px 2px rgb(16 24 40 / 30%); }
+    .columns-banner { background: var(--accent-soft); color: var(--muted); font-weight: 600; text-align: center; white-space: normal; }
+    .columns-banner strong { color: var(--ink); }
     tr.is-editing { background: #f0f7f4 !important; }
     .empty-row { color: var(--muted); text-align: center; }
     #toast {
       position: fixed;
-      right: 22px;
+      inset-inline-end: 22px;
       bottom: 22px;
       z-index: 5;
       max-width: min(360px, calc(100vw - 32px));
@@ -176,6 +224,7 @@
         <span id="quickDeleteStatus" aria-live="polite"></span>
         <label class="quick-delete-control"><input id="quickDeleteCheckbox" type="checkbox"><span>Quick delete</span></label>
         <button id="blurToggleButton" type="button" aria-pressed="false" title="Blur list text">Blur list</button>
+        <button id="directionToggleButton" type="button" aria-pressed="false" title="Switch to right-to-left layout" aria-label="Right-to-left layout">RTL</button>
         <button id="addRecordButton" class="primary-button" type="button" aria-label="Add record" title="Add record">+</button>
       </div>
     </div>
@@ -191,11 +240,13 @@
     let editPasswordHash = null;
     let allowClientExit = false;
     let editState = null;
+    let columnEditDraft = null;
     let quickDeleteEnabled = false;
     let listTextBlurred = false;
     let sortState = { key: null, direction: 1 };
     let columnWidths = {};
     let activeColumnResize = null;
+    let listDirectionRtl = false;
     let toastTimeout;
 
     function showToast(message) {
@@ -226,9 +277,11 @@
           }
           listDocument = data;
           loadColumnWidths();
+          loadDirection();
           document.title = data.schema.title || 'List';
           document.getElementById('listTitle').textContent = data.schema.title || 'List';
-          renderTable();
+          if (!listDocument.schema.fields.length) beginColumnEdit();
+          else renderTable();
         })
         .catch(err => {
           document.getElementById('tableContainer').innerHTML =
@@ -281,6 +334,43 @@
       return `schema-list-column-widths:${listDocument.schema.title || 'List'}:${fieldKeys}`;
     }
 
+    function getDirectionStorageKey() {
+      return 'schema-list-direction';
+    }
+
+    function applyDirection() {
+      document.documentElement.dir = listDirectionRtl ? 'rtl' : 'ltr';
+      const button = document.getElementById('directionToggleButton');
+      if (!button) return;
+      button.setAttribute('aria-pressed', String(listDirectionRtl));
+      button.title = listDirectionRtl ? 'Switch to left-to-right layout' : 'Switch to right-to-left layout';
+      button.setAttribute('aria-label', listDirectionRtl ? 'Right-to-left layout' : 'Left-to-right layout');
+    }
+
+    function loadDirection() {
+      try {
+        listDirectionRtl = localStorage.getItem(getDirectionStorageKey()) === 'rtl';
+      } catch {
+        listDirectionRtl = false;
+      }
+      applyDirection();
+    }
+
+    function saveDirection() {
+      try {
+        localStorage.setItem(getDirectionStorageKey(), listDirectionRtl ? 'rtl' : 'ltr');
+      } catch {
+        showToast('Layout direction could not be saved in this browser.');
+      }
+    }
+
+    function toggleDirection() {
+      listDirectionRtl = !listDirectionRtl;
+      applyDirection();
+      saveDirection();
+      renderTable();
+    }
+
     function clampColumnWidth(width) {
       return Math.max(80, Math.min(900, width));
     }
@@ -313,8 +403,8 @@
     }
 
     function getRenderedColumnWidths() {
-      const fields = listDocument.schema.fields;
-      const fixedWidths = { __ordinal: 56, __actions: 184 };
+      const fields = columnEditDraft || listDocument.schema.fields;
+      const fixedWidths = { __ordinal: 56, __actions: columnEditDraft ? 320 : 184 };
       const columns = fields.map(field => ({
           key: field.key,
           minWidth: 96,
@@ -406,7 +496,7 @@
     }
 
     function beginAdd() {
-      if (editState) return;
+      if (editState || columnEditDraft) return;
       document.getElementById('searchBox').value = '';
       editState = { index: null, isNew: true, draft: makeEmptyRecord() };
       renderTable();
@@ -414,7 +504,7 @@
     }
 
     function beginEdit(index) {
-      if (editState) return;
+      if (editState || columnEditDraft) return;
       editState = {
         index,
         isNew: false,
@@ -435,6 +525,111 @@
       const checked = type === 'checkbox' && booleanValue(value) ? ' checked' : '';
       const inputValue = type === 'checkbox' ? '' : ` value="${escapeHtml(value ?? '')}"`;
       return `<input class="edit-input" data-field-key="${escapeHtml(field.key)}" aria-label="${escapeHtml(field.label)}" type="${type}"${inputValue}${checked}${required}>`;
+    }
+
+    function makeFieldKey(label, fields) {
+      const base = String(label).toLowerCase().replace(/[^a-z0-9]+/g, '').replace(/^[0-9]/, match => `c${match}`) || 'column';
+      let key = base;
+      let suffix = 2;
+      while (fields.some(field => field.key === key)) key = `${base}${suffix++}`;
+      return key;
+    }
+
+    function beginColumnEdit() {
+      if (editState) return;
+      columnEditDraft = listDocument.schema.fields.map(field => ({ ...field }));
+      renderTable();
+      const focusTarget = columnEditDraft.length
+        ? document.querySelector('.column-edit-input')
+        : document.querySelector('[data-action="add-column"]');
+      focusTarget?.focus();
+    }
+
+    function cancelColumnEdit() {
+      columnEditDraft = null;
+      renderTable();
+    }
+
+    function removeColumnFromDraft(key) {
+      if (!columnEditDraft || columnEditDraft.length <= 1) {
+        showToast('A list needs at least one column.');
+        return;
+      }
+      const field = columnEditDraft.find(item => item.key === key);
+      if (!quickDeleteEnabled && !window.confirm(`Remove the "${field?.label || key}" column and its values from every record?`)) return;
+      columnEditDraft = columnEditDraft.filter(item => item.key !== key);
+      if (sortState.key === key) sortState = { key: null, direction: 1 };
+      renderTable();
+    }
+
+    function addColumnToDraft() {
+      if (!columnEditDraft) return;
+      const label = window.prompt('Name the new column:');
+      if (label === null) return;
+      const trimmedLabel = label.trim();
+      if (!trimmedLabel) {
+        showToast('A column name is required.');
+        return;
+      }
+      columnEditDraft.push({ key: makeFieldKey(trimmedLabel, columnEditDraft), label: trimmedLabel, type: 'text' });
+      renderTable();
+      document.querySelector(`[data-column-part="label"][data-column-key="${CSS.escape(columnEditDraft[columnEditDraft.length - 1].key)}"]`)?.focus();
+    }
+
+    function readColumnEditDraft() {
+      if (!columnEditDraft) return null;
+      const container = document.getElementById('tableContainer');
+      columnEditDraft.forEach(field => {
+        const label = container.querySelector(`[data-column-part="label"][data-column-key="${CSS.escape(field.key)}"]`);
+        const type = container.querySelector(`[data-column-part="type"][data-column-key="${CSS.escape(field.key)}"]`);
+        const required = container.querySelector(`[data-column-part="required"][data-column-key="${CSS.escape(field.key)}"]`);
+        if (label) field.label = label.value;
+        if (type) field.type = type.value;
+        field.required = Boolean(required?.checked);
+      });
+      return columnEditDraft;
+    }
+
+    function validateColumnDraft(fields) {
+      if (!fields.length) return 'A list needs at least one column.';
+      if (fields.some(field => !field.label.trim())) return 'Every column needs a name.';
+      const labels = fields.map(field => field.label.trim().toLowerCase());
+      if (new Set(labels).size !== labels.length) return 'Column names must be unique.';
+      if (new Set(fields.map(field => field.key)).size !== fields.length) return 'Column keys must be unique.';
+      return null;
+    }
+
+    function saveColumnChanges() {
+      const draft = readColumnEditDraft();
+      if (!draft) return;
+      const error = validateColumnDraft(draft);
+      if (error) {
+        showToast(error);
+        return;
+      }
+      const previousRecords = [...listDocument.records];
+      const previousFields = listDocument.schema.fields;
+      const previousSortKey = sortState.key;
+      const nextFields = draft.map(field => ({ key: field.key, label: field.label.trim(), type: getInputType(field), ...(field.required ? { required: true } : {}) }));
+      const nextKeys = new Set(nextFields.map(field => field.key));
+      listDocument.schema.fields = nextFields;
+      listDocument.records = listDocument.records.map(record => {
+        const nextRecord = {};
+        nextFields.forEach(field => {
+          const value = record[field.key];
+          if (value === undefined) {
+            nextRecord[field.key] = getInputType(field) === 'checkbox' ? false : '';
+          } else {
+            nextRecord[field.key] = value;
+          }
+        });
+        return nextRecord;
+      });
+      Object.keys(columnWidths).forEach(key => {
+        if (!nextKeys.has(key)) delete columnWidths[key];
+      });
+      sortState = { key: nextKeys.has(previousSortKey) ? previousSortKey : null, direction: 1 };
+      saveListOnServer(previousRecords, () => { editState = null; columnEditDraft = null; }, previousFields);
     }
 
     function compareValues(left, right, field) {
@@ -480,20 +675,27 @@
     }
 
     function renderTable() {
-      const fields = listDocument.schema.fields;
+      const fields = columnEditDraft || listDocument.schema.fields;
       const records = visibleRecords();
       const query = document.getElementById('searchBox').value.trim();
       const draftCount = editState?.isNew ? 1 : 0;
       const displayedCount = records.length + draftCount;
       const totalCount = listDocument.records.length + draftCount;
-      document.getElementById('recordCount').textContent = query
-        ? `${displayedCount} of ${totalCount} records displayed`
-        : `${totalCount} records displayed`;
+      const recordCount = document.getElementById('recordCount');
+      recordCount.classList.toggle('mode-note', Boolean(columnEditDraft));
+      recordCount.textContent = columnEditDraft
+        ? `Editing columns — ${fields.length} ${fields.length === 1 ? 'column' : 'columns'}, ${totalCount} ${totalCount === 1 ? 'record' : 'records'}`
+        : query
+          ? `${displayedCount} of ${totalCount} records displayed`
+          : `${totalCount} records displayed`;
       const widths = getRenderedColumnWidths();
       const totalColumnWidth = Object.values(widths).reduce((total, width) => total + width, 0);
-      const tableWidth = Math.max(document.getElementById('tableContainer').clientWidth - 2, totalColumnWidth);
+      const tableWidth = fields.length
+        ? Math.max(document.getElementById('tableContainer').clientWidth - 2, totalColumnWidth)
+        : totalColumnWidth;
       const sortGlyph = direction => direction === 1 ? '▲' : '▼';
-      let table = `<div class="table-scroll${listTextBlurred ? ' is-text-blurred' : ''}"><table style="width:${tableWidth}px"><colgroup>`;
+      const editClass = columnEditDraft ? ' columns-editing' : '';
+      let table = `<div class="table-scroll${listTextBlurred ? ' is-text-blurred' : ''}${editClass}"><table style="width:${tableWidth}px"><colgroup>`;
 
       table += '<col data-column-key="__ordinal" style="width:56px">';
       fields.forEach(field => {
@@ -503,14 +705,35 @@
       const actionsWidth = widths.__actions;
       table += `<col data-column-key="__actions" style="width:${actionsWidth}px"></colgroup><thead><tr><th scope="col" class="ordinal-cell" aria-label="Row number">#</th>`;
 
+      const columnTypes = ['text', 'email', 'number', 'date', 'checkbox'];
       fields.forEach(field => {
+        if (columnEditDraft) {
+          const typeOptions = columnTypes
+            .map(type => `<option value="${type}"${type === getInputType(field) ? ' selected' : ''}>${type}</option>`)
+            .join('');
+          table += `<th><div class="column-editor"><div class="column-editor-top"><input class="column-edit-input" type="text" data-column-part="label" data-column-key="${escapeHtml(field.key)}" value="${escapeHtml(field.label)}" aria-label="Name of ${escapeHtml(field.label)} column" placeholder="Column name"><button class="column-edit-remove" type="button" data-action="remove-column" data-column-key="${escapeHtml(field.key)}" title="Remove the ${escapeHtml(field.label)} column" aria-label="Remove the ${escapeHtml(field.label)} column">✕</button></div><div class="column-editor-bottom"><select class="column-edit-input" data-column-part="type" data-column-key="${escapeHtml(field.key)}" aria-label="Type of ${escapeHtml(field.label)} column">${typeOptions}</select><label class="column-edit-required"><input type="checkbox" data-column-part="required" data-column-key="${escapeHtml(field.key)}"${field.required ? ' checked' : ''}>Required</label></div></div></th>`;
+          return;
+        }
         const active = sortState.key === field.key;
         const direction = active ? (sortState.direction === 1 ? 'ascending' : 'descending') : 'none';
         const glyph = active ? sortGlyph(sortState.direction) : '⇅';
         const width = widths[field.key];
         table += `<th aria-sort="${direction}"><button class="sort-button" type="button" data-action="sort" data-sort-key="${escapeHtml(field.key)}" aria-pressed="${active}" aria-label="Sort by ${escapeHtml(field.label)} ${active ? direction : ''}"><span>${escapeHtml(field.label)}</span><span class="sort-glyph" aria-hidden="true">${glyph}</span></button>${makeResizeHandle(field.key, field.label, width)}</th>`;
       });
-      table += '<th scope="col">Actions</th></tr></thead><tbody>';
+
+      const actionsSpan = fields.length ? '' : ` colspan="${fields.length + 1}"`;
+      if (columnEditDraft) {
+        table += `<th scope="col" class="header-actions-cell"${actionsSpan}><div class="header-cell header-cell-tools"><span class="columns-caption">Columns</span><span class="row-actions"><button class="primary-button" type="button" data-action="save-columns">Save</button><button type="button" data-action="add-column" title="Add a column">+ Column</button><button type="button" data-action="cancel-columns">Cancel</button></span></div></th></tr></thead><tbody>`;
+      } else {
+        table += `<th scope="col" class="header-actions-cell"${actionsSpan}><div class="header-cell"><span class="columns-caption">Actions</span><button class="columns-tool" type="button" data-action="edit-columns" title="${fields.length ? 'Edit columns: add, rename, retype or remove' : 'Add the first column'}" aria-label="${fields.length ? 'Edit columns' : 'Add the first column'}"><span class="tool-glyph" aria-hidden="true">✎</span></button></div></th></tr></thead><tbody>`;
+      }
+
+      if (!fields.length) {
+        const banner = columnEditDraft
+          ? '<strong>No columns yet.</strong> Use “+ Column” to give records a place to store values.'
+          : '<strong>This list has no columns.</strong> Add the first one to start entering values.';
+        table += `<tr><td class="columns-banner" colspan="${fields.length + 2}">${banner}</td></tr>`;
+      }
 
       if (!records.length && !editState?.isNew) {
         table += `<tr><td class="empty-row" colspan="${fields.length + 2}">No records found.</td></tr>`;
@@ -535,8 +758,10 @@
         if (isEditing) {
           table += `<td><div class="row-actions"><button class="primary-button" type="button" data-action="save-row" data-record-index="${index}">Save</button><button type="button" data-action="cancel-edit">Cancel</button></div></td></tr>`;
         } else {
-          const disabled = editState ? ' disabled' : '';
-          table += `<td><div class="row-actions"><button type="button" data-action="edit-row" data-record-index="${index}"${disabled}>Edit</button><button class="remove-button" type="button" data-action="remove-row" data-record-index="${index}"${disabled}>Remove</button></div></td></tr>`;
+          const busy = editState || columnEditDraft;
+          const editDisabled = busy || !fields.length ? ' disabled' : '';
+          const removeDisabled = busy ? ' disabled' : '';
+          table += `<td><div class="row-actions"><button type="button" data-action="edit-row" data-record-index="${index}"${editDisabled}>Edit</button><button class="remove-button" type="button" data-action="remove-row" data-record-index="${index}"${removeDisabled}>Remove</button></div></td></tr>`;
         }
       });
 
@@ -550,7 +775,7 @@
       table += '</tbody></table></div>';
       document.getElementById('tableContainer').innerHTML = table;
       updateHorizontalOverflow();
-      document.getElementById('addRecordButton').disabled = Boolean(editState);
+      document.getElementById('addRecordButton').disabled = Boolean(editState) || Boolean(columnEditDraft);
       document.getElementById('searchBox').disabled = Boolean(editState);
     }
 
@@ -601,13 +826,17 @@
       return Array.from(new Uint8Array(digest), byte => byte.toString(16).padStart(2, '0')).join('');
     }
 
-    async function saveListOnServer(previousRecords, onSaved) {
+    async function saveListOnServer(previousRecords, onSaved, previousFields = null) {
+      const restore = () => {
+        listDocument.records = previousRecords;
+        if (previousFields) listDocument.schema.fields = previousFields;
+      };
       try {
         let passwordHash = editPasswordHash;
         if (editPasswordRequired && !passwordHash) {
           const password = window.prompt('Enter the password to save this change:');
           if (password === null) {
-            listDocument.records = previousRecords;
+            restore();
             renderTable();
             return;
           }
@@ -633,7 +862,7 @@
         renderTable();
         showToast('List updated.');
       } catch (err) {
-        listDocument.records = previousRecords;
+        restore();
         renderTable();
         showToast(`Error: ${err.message}`);
       }
@@ -658,6 +887,8 @@
       this.title = listTextBlurred ? 'Show list text' : 'Blur list text';
       renderTable();
     });
+
+    document.getElementById('directionToggleButton').addEventListener('click', toggleDirection);
 
     document.getElementById('quickDeleteCheckbox').addEventListener('change', function () {
       if (this.checked) {
@@ -706,8 +937,37 @@
         case 'copy':
           copyField(index, button.dataset.fieldKey);
           break;
+        case 'edit-columns':
+          beginColumnEdit();
+          break;
+        case 'add-column':
+          addColumnToDraft();
+          break;
+        case 'remove-column':
+          removeColumnFromDraft(button.dataset.columnKey);
+          break;
+        case 'save-columns':
+          saveColumnChanges();
+          break;
+        case 'cancel-columns':
+          cancelColumnEdit();
+          break;
       }
     });
+
+    document.getElementById('tableContainer').addEventListener('input', syncColumnEditDraft);
+    document.getElementById('tableContainer').addEventListener('change', syncColumnEditDraft);
+
+    function syncColumnEditDraft(event) {
+      if (!columnEditDraft) return;
+      const input = event.target.closest('[data-column-part][data-column-key]');
+      if (!input) return;
+      const field = columnEditDraft.find(item => item.key === input.dataset.columnKey);
+      if (!field) return;
+      if (input.dataset.columnPart === 'label') field.label = input.value;
+      if (input.dataset.columnPart === 'type') field.type = input.value;
+      if (input.dataset.columnPart === 'required') field.required = input.checked;
+    }
 
     document.getElementById('tableContainer').addEventListener('pointerdown', function (event) {
       const handle = event.target.closest('[data-action="resize-column"]');
@@ -731,8 +991,12 @@
 
     document.addEventListener('pointermove', function (event) {
       if (!activeColumnResize) return;
-      setColumnWidth(activeColumnResize.key, activeColumnResize.startWidth + event.clientX - activeColumnResize.startX);
+      setColumnWidth(activeColumnResize.key, activeColumnResize.startWidth + (event.clientX - activeColumnResize.startX) * resizeDirection());
     });
+
+    function resizeDirection() {
+      return document.documentElement.dir === 'rtl' ? -1 : 1;
+    }
 
     function endColumnResize() {
       if (!activeColumnResize) return;
@@ -751,7 +1015,7 @@
     document.getElementById('tableContainer').addEventListener('keydown', function (event) {
       const resizeHandle = event.target.closest('[data-action="resize-column"]');
       if (resizeHandle && (event.key === 'ArrowLeft' || event.key === 'ArrowRight')) {
-        const direction = event.key === 'ArrowRight' ? 1 : -1;
+        const direction = (event.key === 'ArrowRight' ? 1 : -1) * resizeDirection();
         const key = resizeHandle.dataset.resizeKey;
         const field = listDocument.schema.fields.find(item => item.key === key);
         event.preventDefault();
@@ -759,7 +1023,16 @@
         saveColumnWidths();
         return;
       }
-      if (!editState) return;
+      if (!editState) {
+        if (columnEditDraft && event.key === 'Escape') {
+          event.preventDefault();
+          cancelColumnEdit();
+        } else if (columnEditDraft && event.key === 'Enter' && event.target.matches('.column-edit-input:not(select)')) {
+          event.preventDefault();
+          saveColumnChanges();
+        }
+        return;
+      }
       if (event.key === 'Escape') {
         event.preventDefault();
         cancelEdit();

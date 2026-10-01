@@ -31,6 +31,9 @@ Open the localhost URL printed by the server (default port `8080`). Add `-OpenBr
 
 - Search records, sort by column, drag dividers to resize, or copy a field value.
 - Use **+** to add a record, **Edit** to change one, and **Remove** to delete one. **Quick delete** skips confirmation.
+- Use **Edit columns** in the columns row (the pencil button beside the Actions caption) to add a column, rename it, change its type or required flag, or remove it and its values. Column keys stay stable so renaming never loses data.
+- A list with no columns opens in column edit mode with a hint banner; add the first column to get started.
+- **RTL** mirrors the whole list right-to-left, including column dividers and drag resizing. The choice is remembered per browser.
 - **Blur list** visually obscures record fields; it does not encrypt or protect the underlying data.
 
 Edits save to the selected JSON file or gzip file. Press `q` in the server terminal to stop it; Enter is not needed.
