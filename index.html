@@ -688,6 +688,7 @@
       selectedPersonId: null,
       activeFilters: { waterDate: null, electricityDate: null },
       expandedPersonId: null,
+      allowClientExit: false,
       currency: 'ILS',
       rtl: true
     };
@@ -919,12 +920,19 @@
         await saveData();
         render();
       });
+
+      window.addEventListener('pagehide', () => {
+        if (state.allowClientExit && navigator.sendBeacon) {
+          navigator.sendBeacon('/client-exit', '');
+        }
+      });
     }
 
     async function loadData() {
       try {
         const response = await fetch('data.json', { cache: 'no-store' });
         if (!response.ok) throw new Error('Unable to read data file.');
+        state.allowClientExit = response.headers.get('X-Allow-Client-Exit') === 'true';
         const parsed = await response.json();
         const people = Array.isArray(parsed.people) ? parsed.people : [];
         state.people = people.length ? people : clone(DEFAULT_DATA.people);
