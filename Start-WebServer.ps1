@@ -194,10 +194,13 @@ $script = {
                     $reader = New-Object IO.StreamReader $request.InputStream, $request.ContentEncoding
                     $document = $reader.ReadToEnd() | ConvertFrom-Json
                     $propertyNames = @($document.PSObject.Properties.Name)
-                    if ($propertyNames -notcontains "schema" -or $propertyNames -notcontains "records" -or -not $document.schema.fields) {
-                        throw "Expected schema and records in request body"
+                    $isCustomUtilityData = $propertyNames -contains "people" -or $propertyNames -contains "persons"
+                    if (-not $isCustomUtilityData) {
+                        if ($propertyNames -notcontains "schema" -or $propertyNames -notcontains "records" -or -not $document.schema.fields) {
+                            throw "Expected schema and records in request body"
+                        }
                     }
-                    $json = $document | ConvertTo-Json -Depth 10
+                    $json = $document | ConvertTo-Json -Depth 20
                     $jsonBytes = [System.Text.UTF8Encoding]::new($false).GetBytes($json)
                     $compressedStream = [IO.MemoryStream]::new()
                     try {
