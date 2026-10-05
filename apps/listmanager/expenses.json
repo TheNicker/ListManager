@@ -1,0 +1,99 @@
+{
+  "schema": {
+    "title": "Household Expenses",
+    "fields": [
+      {
+        "key": "description",
+        "label": "Description",
+        "type": "text",
+        "required": true
+      },
+      {
+        "key": "category",
+        "label": "Category",
+        "type": "text"
+      },
+      {
+        "key": "amount",
+        "label": "Amount",
+        "type": "number",
+        "required": true
+      },
+      {
+        "key": "date",
+        "label": "Date",
+        "type": "date"
+      },
+      {
+        "key": "paid",
+        "label": "Paid",
+        "type": "checkbox"
+      }
+    ]
+  },
+  "records": [
+    {
+      "description": "Monthly rent",
+      "category": "Housing",
+      "amount": 2450,
+      "date": "2026-10-01",
+      "paid": true
+    },
+    {
+      "description": "Electricity bill",
+      "category": "Utilities",
+      "amount": 318.5,
+      "date": "2026-10-04",
+      "paid": true
+    },
+    {
+      "description": "Water bill",
+      "category": "Utilities",
+      "amount": 92.75,
+      "date": "2026-10-05",
+      "paid": false
+    },
+    {
+      "description": "Grocery run",
+      "category": "Food",
+      "amount": 186.4,
+      "date": "2026-10-07",
+      "paid": true
+    },
+    {
+      "description": "Pharmacy",
+      "category": "Health",
+      "amount": 64.2,
+      "date": "2026-10-09",
+      "paid": true
+    },
+    {
+      "description": "Train pass",
+      "category": "Transport",
+      "amount": 210,
+      "date": "2026-10-10",
+      "paid": false
+    },
+    {
+      "description": "Annual car inspection",
+      "category": "Transport",
+      "amount": 148,
+      "date": "2026-09-28",
+      "paid": true
+    },
+    {
+      "description": "Streaming bundle",
+      "category": "Subscriptions",
+      "amount": 47.9,
+      "date": "2026-10-11",
+      "paid": false
+    },
+    {
+      "description": "Home insurance",
+      "category": "Housing",
+      "amount": 133.6,
+      "date": "2026-10-12",
+      "paid": false
+    }
+  ]
+}

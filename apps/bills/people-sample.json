@@ -1,0 +1,52 @@
+{
+    "people": [
+        {
+            "id": "person-sample-01",
+            "name": "נועה לדוגמה",
+            "phone": "050-0000001",
+            "address": "רחוב הדוגמה 10",
+            "water": [
+                { "id": "water-01-1", "date": "2026-01-15", "read": 1042 },
+                { "id": "water-01-2", "date": "2026-04-18", "read": 1136, "averagePrice": 10.15 },
+                { "id": "water-01-3", "date": "2026-07-19", "read": 1203, "averagePrice": 10.6 },
+                { "id": "water-01-4", "date": "2026-10-03", "read": 1281, "averagePrice": 11.05 }
+            ],
+            "electricity": [
+                { "id": "electricity-01-1", "date": "2026-01-15", "read": 22140 },
+                { "id": "electricity-01-2", "date": "2026-04-18", "read": 22905, "pricePerUnit": 0.6432, "fixedPrice": 15 },
+                { "id": "electricity-01-3", "date": "2026-07-19", "read": 24310, "pricePerUnit": 0.6432, "fixedPrice": 15 },
+                { "id": "electricity-01-4", "date": "2026-10-03", "read": 25188, "pricePerUnit": 0.6432, "fixedPrice": 15 }
+            ]
+        },
+        {
+            "id": "person-sample-02",
+            "name": "איתי לדוגמה",
+            "phone": "050-0000002",
+            "address": "רחוב הדוגמה 20",
+            "water": [
+                { "id": "water-02-1", "date": "2026-02-08", "read": 615 },
+                { "id": "water-02-2", "date": "2026-06-11", "read": 742, "averagePrice": 10.4 },
+                { "id": "water-02-3", "date": "2026-09-12", "read": 861, "averagePrice": 11.3 }
+            ],
+            "electricity": [
+                { "id": "electricity-02-1", "date": "2026-02-08", "read": 9840 },
+                { "id": "electricity-02-2", "date": "2026-06-11", "read": 10960, "pricePerUnit": 0.6432, "fixedPrice": 15 },
+                { "id": "electricity-02-3", "date": "2026-09-12", "read": 11874, "pricePerUnit": 0.6432, "fixedPrice": 15 }
+            ]
+        },
+        {
+            "id": "person-sample-03",
+            "name": "מאיה לדוגמה",
+            "phone": "050-0000003",
+            "address": "רחוב הדוגמה 30",
+            "water": [
+                { "id": "water-03-1", "date": "2026-05-02", "read": 2310 },
+                { "id": "water-03-2", "date": "2026-08-06", "read": 2455, "averagePrice": 10.85 }
+            ],
+            "electricity": [
+                { "id": "electricity-03-1", "date": "2026-05-02", "read": 4120 },
+                { "id": "electricity-03-2", "date": "2026-08-06", "read": 4735, "pricePerUnit": 0.6432, "fixedPrice": 15 }
+            ]
+        }
+    ]
+}

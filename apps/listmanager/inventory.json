@@ -1,0 +1,22 @@
+{
+  "schema": {
+    "title": "Equipment Inventory",
+    "fields": [
+      { "key": "item", "label": "Item", "type": "text", "required": true },
+      { "key": "category", "label": "Category", "type": "text" },
+      { "key": "quantity", "label": "Quantity", "type": "number" },
+      { "key": "serial", "label": "Serial Number", "type": "text" },
+      { "key": "warrantyUntil", "label": "Warranty Until", "type": "date" },
+      { "key": "insured", "label": "Insured", "type": "checkbox" }
+    ]
+  },
+  "records": [
+    { "item": "Cordless drill", "category": "Tools", "quantity": 2, "serial": "DR-4471", "warrantyUntil": "2027-03-31", "insured": false },
+    { "item": "Laser level", "category": "Tools", "quantity": 1, "serial": "LL-2210", "warrantyUntil": "2026-11-15", "insured": false },
+    { "item": "Office laptop", "category": "Electronics", "quantity": 3, "serial": "LT-9042", "warrantyUntil": "2028-06-30", "insured": true },
+    { "item": "Backup drive 4TB", "category": "Electronics", "quantity": 2, "serial": "BD-1188", "warrantyUntil": "2029-01-20", "insured": true },
+    { "item": "Folding table", "category": "Furniture", "quantity": 4, "serial": "FT-7734", "warrantyUntil": "2026-09-01", "insured": false },
+    { "item": "Ergonomic chair", "category": "Furniture", "quantity": 5, "serial": "EC-5506", "warrantyUntil": "2030-04-10", "insured": false },
+    { "item": "First aid kit", "category": "Safety", "quantity": 2, "serial": "FA-3390", "warrantyUntil": "2027-12-31", "insured": false }
+  ]
+}

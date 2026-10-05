@@ -1,0 +1,26 @@
+{
+  "schema": {
+    "fields": [
+      {
+        "key": "name",
+        "label": "name",
+        "type": "text"
+      },
+      {
+        "key": "lastname",
+        "label": "last name",
+        "type": "text"
+      }
+    ]
+  },
+  "records": [
+    {
+      "name": "Dan",
+      "lastname": "Olgrich"
+    },
+    {
+      "name": "123",
+      "lastname": "456"
+    }
+  ]
+}

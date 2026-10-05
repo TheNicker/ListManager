@@ -1,0 +1,21 @@
+{
+  "schema": {
+    "title": "Project Tasks",
+    "fields": [
+      { "key": "task", "label": "Task", "type": "text", "required": true },
+      { "key": "assignee", "label": "Assignee", "type": "text" },
+      { "key": "due", "label": "Due", "type": "date" },
+      { "key": "priority", "label": "Priority", "type": "number" },
+      { "key": "done", "label": "Done", "type": "checkbox" }
+    ]
+  },
+  "records": [
+    { "task": "Draft the migration plan", "assignee": "Rina", "due": "2026-10-12", "priority": 1, "done": true },
+    { "task": "Rotate API credentials", "assignee": "Omar", "due": "2026-10-08", "priority": 1, "done": true },
+    { "task": "Upgrade staging database", "assignee": "Rina", "due": "2026-10-24", "priority": 2, "done": false },
+    { "task": "Write onboarding guide", "assignee": "Jae", "due": "2026-11-02", "priority": 3, "done": false },
+    { "task": "Archive legacy buckets", "assignee": "Omar", "due": "2026-11-15", "priority": 3, "done": false },
+    { "task": "Quarterly cost review", "assignee": "Jae", "due": "2026-09-30", "priority": 2, "done": true },
+    { "task": "Refresh incident runbook", "assignee": "Rina", "due": "2026-12-01", "priority": 2, "done": false }
+  ]
+}

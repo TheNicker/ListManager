@@ -1,0 +1,6 @@
+# Local backups and temporary replacement files may contain personal data.
+*.backup
+*.backup.*
+*.bak
+*.tmp
+data.json.test

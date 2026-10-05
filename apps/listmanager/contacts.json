@@ -1,0 +1,20 @@
+{
+  "schema": {
+    "title": "Vendor Contacts",
+    "fields": [
+      { "key": "name", "label": "Contact", "type": "text", "required": true },
+      { "key": "company", "label": "Company", "type": "text" },
+      { "key": "email", "label": "Email", "type": "email" },
+      { "key": "phone", "label": "Phone", "type": "text" },
+      { "key": "active", "label": "Active", "type": "checkbox" }
+    ]
+  },
+  "records": [
+    { "name": "Iris Calloway", "company": "Northwind Paper", "email": "iris@example.com", "phone": "+1-202-555-0114", "active": true },
+    { "name": "Devon Marsh", "company": "Halcyon Freight", "email": "devon@example.com", "phone": "+1-202-555-0127", "active": true },
+    { "name": "Priya Raman", "company": "Copper Kettle Print", "email": "priya@example.com", "phone": "+1-202-555-0141", "active": false },
+    { "name": "Tomas Brandt", "company": "Lakeside Hardware", "email": "tomas@example.com", "phone": "+1-202-555-0163", "active": true },
+    { "name": "Noor Haddad", "company": "Meridian Cleaning", "email": "noor@example.com", "phone": "+1-202-555-0175", "active": false },
+    { "name": "Sam Okonkwo", "company": "Bright Parcel", "email": "sam@example.com", "phone": "+1-202-555-0188", "active": true }
+  ]
+}

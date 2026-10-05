@@ -450,6 +450,8 @@
       padding: 8px 10px;
     }
 
+    .edit-entry-input { width: 100%; min-width: 90px; min-height: 34px; padding: 6px; }
+
     .form-actions {
       display: flex;
       align-items: end;
@@ -465,6 +467,23 @@
       border: 1px dashed var(--line);
       border-radius: 12px;
       text-align: center;
+    }
+
+    .data-notice {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 16px;
+      padding: 12px 16px;
+      border: 1px solid #f59e0b;
+      border-radius: 10px;
+      background: var(--warning-soft);
+      color: #78350f;
+    }
+
+    .data-notice button {
+      flex: 0 0 auto;
     }
 
     @media (max-width: 980px) {
@@ -506,6 +525,10 @@
     </aside>
 
     <main class="content">
+      <div id="dataNotice" class="data-notice hidden" role="alert" aria-live="assertive">
+        <span id="dataNoticeMessage"></span>
+        <button id="dataNoticeAction" class="ghost-button" type="button"></button>
+      </div>
       <header class="topbar">
         <div>
           <p class="eyebrow">סקירה</p>
@@ -559,8 +582,9 @@
           </label>
           <label class="field">
             מחיר ממוצע
-            <input type="number" name="averagePrice" min="0" step="0.01" required placeholder="₪ / m³" />
+            <input type="number" name="averagePrice" min="0" step="any" required placeholder="₪ / m³" data-price-field="water" />
           </label>
+          <p class="muted hidden" data-baseline-note="water" style="grid-column: 1 / -1;">קריאת בסיס ראשונה; אין צורך במחיר.</p>
           <div class="form-actions">
             <button class="primary-button" type="submit">שמור קריאת מים</button>
             <button class="ghost-button" type="button" data-action="cancel-water-form">ביטול</button>
@@ -586,12 +610,13 @@
           </label>
           <label class="field">
             מחיר ליחידה
-            <input type="number" name="pricePerUnit" min="0" step="0.01" required placeholder="₪ / kWh" />
+            <input type="number" name="pricePerUnit" min="0" step="any" required placeholder="₪ / kWh" data-price-field="electricity" />
           </label>
           <label class="field">
             תשלום קבוע
-            <input type="number" name="fixedPrice" min="0" step="0.01" required placeholder="₪" />
+            <input type="number" name="fixedPrice" min="0" step="any" required placeholder="₪" data-price-field="electricity" />
           </label>
+          <p class="muted hidden" data-baseline-note="electricity" style="grid-column: 1 / -1;">קריאת בסיס ראשונה; אין צורך במחיר.</p>
           <div class="form-actions">
             <button class="primary-button" type="submit">שמור קריאת חשמל</button>
             <button class="ghost-button" type="button" data-action="cancel-electricity-form">ביטול</button>
@@ -603,95 +628,23 @@
     </main>
   </div>
 
+  <script src="/shared/Html.js"></script>
+  <script src="/shared/DataIntegrity.js"></script>
+  <script src="/shared/AppLifecycle.js"></script>
   <script>
-    const DEFAULT_DATA = {
-      people: [
-        {
-          id: 'person-alice',
-          name: 'Alice Johnson',
-          water: [
-            { id: 'w-1', date: '2025-02-28', read: 1420, averagePrice: 8.15 },
-            { id: 'w-2', date: '2025-04-30', read: 1548, averagePrice: 8.35 },
-            { id: 'w-3', date: '2025-06-30', read: 1687, averagePrice: 8.45 }
-          ],
-          electricity: [
-            { id: 'e-1', date: '2025-02-28', read: 1845, pricePerUnit: 0.42, fixedPrice: 35 },
-            { id: 'e-2', date: '2025-04-30', read: 2031, pricePerUnit: 0.45, fixedPrice: 35 },
-            { id: 'e-3', date: '2025-06-30', read: 2196, pricePerUnit: 0.47, fixedPrice: 35 }
-          ]
-        },
-        {
-          id: 'person-daniel',
-          name: 'Daniel Smith',
-          water: [
-            { id: 'w-4', date: '2025-02-28', read: 980, averagePrice: 8.2 },
-            { id: 'w-5', date: '2025-04-30', read: 1074, averagePrice: 8.4 },
-            { id: 'w-6', date: '2025-06-30', read: 1166, averagePrice: 8.6 }
-          ],
-          electricity: [
-            { id: 'e-4', date: '2025-02-28', read: 1650, pricePerUnit: 0.39, fixedPrice: 26 },
-            { id: 'e-5', date: '2025-04-30', read: 1768, pricePerUnit: 0.41, fixedPrice: 26 },
-            { id: 'e-6', date: '2025-06-30', read: 1895, pricePerUnit: 0.43, fixedPrice: 26 }
-          ]
-        },
-        {
-          id: 'person-maya-demo',
-          name: 'Maya Cohen (Demo)',
-          water: [
-            { id: 'mw-1', date: '2025-01-31', read: 610, averagePrice: 8.1 },
-            { id: 'mw-2', date: '2025-03-31', read: 672, averagePrice: 8.3 },
-            { id: 'mw-3', date: '2025-05-31', read: 741, averagePrice: 8.4 }
-          ],
-          electricity: [
-            { id: 'me-1', date: '2025-01-31', read: 920, pricePerUnit: 0.4, fixedPrice: 28 },
-            { id: 'me-2', date: '2025-03-31', read: 1012, pricePerUnit: 0.42, fixedPrice: 28 },
-            { id: 'me-3', date: '2025-05-31', read: 1118, pricePerUnit: 0.44, fixedPrice: 28 }
-          ]
-        },
-        {
-          id: 'person-noa-demo',
-          name: 'נועה לוי (דוגמה)',
-          phone: '050-000-1001',
-          address: 'רחוב הדוגמה 12, חיפה',
-          water: [
-            { id: 'nw-1', date: '2025-01-31', read: 840, averagePrice: 8.25 },
-            { id: 'nw-2', date: '2025-03-31', read: 912, averagePrice: 8.4 },
-            { id: 'nw-3', date: '2025-05-31', read: 988, averagePrice: 8.55 }
-          ],
-          electricity: [
-            { id: 'ne-1', date: '2025-01-31', read: 1280, pricePerUnit: 0.43, fixedPrice: 31 },
-            { id: 'ne-2', date: '2025-03-31', read: 1406, pricePerUnit: 0.45, fixedPrice: 31 },
-            { id: 'ne-3', date: '2025-05-31', read: 1530, pricePerUnit: 0.47, fixedPrice: 31 }
-          ]
-        },
-        {
-          id: 'person-itay-demo',
-          name: 'איתי מזרחי (דוגמה)',
-          phone: '050-000-1002',
-          address: 'רחוב הדוגמה 8, באר שבע',
-          water: [
-            { id: 'iw-1', date: '2025-02-28', read: 520, averagePrice: 8.0 },
-            { id: 'iw-2', date: '2025-04-30', read: 579, averagePrice: 8.2 },
-            { id: 'iw-3', date: '2025-06-30', read: 645, averagePrice: 8.35 }
-          ],
-          electricity: [
-            { id: 'ie-1', date: '2025-02-28', read: 740, pricePerUnit: 0.41, fixedPrice: 25 },
-            { id: 'ie-2', date: '2025-04-30', read: 828, pricePerUnit: 0.43, fixedPrice: 25 },
-            { id: 'ie-3', date: '2025-06-30', read: 926, pricePerUnit: 0.46, fixedPrice: 25 }
-          ]
-        }
-      ]
-    };
-
     const state = {
       people: [],
       selectedPersonId: null,
+      editingEntry: null,
       activeFilters: { waterDate: null, electricityDate: null },
       expandedPersonId: null,
-      allowClientExit: false,
       currency: 'ILS',
       rtl: true
     };
+    const dataIntegrity = DataIntegrity.create({
+      onChange: renderDataNotice,
+      onConflict: () => AppLifecycle.reloadPage()
+    });
 
     function getMoneyFormatter() {
       const locale = state.rtl ? 'he-IL' : 'en-GB';
@@ -703,6 +656,12 @@
       });
     }
 
+    function isValidDateValue(value) {
+      if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+      const date = new Date(`${value}T00:00:00Z`);
+      return Number.isFinite(date.getTime()) && date.toISOString().slice(0, 10) === value;
+    }
+
     function formatMoney(value) {
       return getMoneyFormatter().format(Number(value || 0));
     }
@@ -710,14 +669,45 @@
     document.addEventListener('DOMContentLoaded', init);
 
     async function init() {
-      await loadData();
+      try {
+        await loadData();
+      } catch (error) {
+        showLoadError(error);
+        return;
+      }
       bindEvents();
       render();
+      dataIntegrity.start();
+    }
+
+    function showLoadError(error) {
+      const notice = document.createElement('div');
+      notice.className = 'data-notice';
+      notice.setAttribute('role', 'alert');
+      notice.textContent = `לא ניתן לטעון את הנתונים: ${error.message}`;
+      const reloadButton = document.createElement('button');
+      reloadButton.className = 'ghost-button';
+      reloadButton.type = 'button';
+      reloadButton.textContent = 'טען מחדש';
+      reloadButton.addEventListener('click', () => AppLifecycle.reloadPage());
+      notice.append(reloadButton);
+      document.querySelector('.content').prepend(notice);
+      document.querySelectorAll('button, input, select').forEach(control => {
+        if (control !== reloadButton) control.disabled = true;
+      });
     }
 
     function bindEvents() {
       const currencySelect = document.getElementById('currencySelect');
       const rtlToggleButton = document.getElementById('rtlToggleButton');
+
+      document.getElementById('dataNoticeAction').addEventListener('click', () => {
+        if (dataIntegrity.hasConflict) {
+          AppLifecycle.reloadPage();
+        } else {
+          dataIntegrity.check();
+        }
+      });
 
       currencySelect.addEventListener('change', (event) => {
         state.currency = event.target.value;
@@ -732,11 +722,35 @@
         render();
       });
 
+      document.querySelectorAll('#waterForm [name="date"], #electricityForm [name="date"]').forEach(input => {
+        input.addEventListener('input', () => updatePriceFields(input.form.id === 'waterForm' ? 'water' : 'electricity'));
+      });
+
       document.body.addEventListener('click', async (event) => {
         const button = event.target.closest('[data-action]');
         if (!button) return;
 
         const action = button.dataset.action;
+        if (state.editingEntry && !['save-entry-edit', 'cancel-entry-edit'].includes(action)) return;
+        if (action === 'edit-water' || action === 'edit-electricity') {
+          const kind = action === 'edit-water' ? 'water' : 'electricity';
+          state.editingEntry = { kind, id: button.dataset.id };
+          render();
+          document.querySelector('.edit-entry-input')?.focus();
+          return;
+        }
+
+        if (action === 'cancel-entry-edit') {
+          state.editingEntry = null;
+          render();
+          return;
+        }
+
+        if (action === 'save-entry-edit') {
+          await saveEntryEdit(button);
+          return;
+        }
+
         if (action === 'add-person') {
           const name = window.prompt('הכנס שם אדם:');
           if (!name) return;
@@ -882,10 +896,13 @@
         const payload = {
           id: cryptoId('water'),
           date: form.date.value,
-          read: parseFloat(form.read.value),
-          averagePrice: parseFloat(form.averagePrice.value)
+          read: form.read.valueAsNumber
         };
-        if (!payload.date || Number.isNaN(payload.read) || Number.isNaN(payload.averagePrice)) {
+        const isBaseline = isBaselineDate(person, 'water', payload.date);
+        const averagePrice = form.averagePrice.valueAsNumber;
+        if (!isBaseline) payload.averagePrice = averagePrice;
+        if (!isValidDateValue(payload.date) || !Number.isFinite(payload.read) ||
+            (!isBaseline && (!Number.isFinite(averagePrice) || averagePrice < 0))) {
           window.alert('יש להזין תאריך, ערך קריאה ומחיר ממוצע תקינים.');
           return;
         }
@@ -905,11 +922,17 @@
         const payload = {
           id: cryptoId('electricity'),
           date: form.date.value,
-          read: parseFloat(form.read.value),
-          pricePerUnit: parseFloat(form.pricePerUnit.value),
-          fixedPrice: parseFloat(form.fixedPrice.value)
+          read: form.read.valueAsNumber
         };
-        if (!payload.date || Number.isNaN(payload.read) || Number.isNaN(payload.pricePerUnit) || Number.isNaN(payload.fixedPrice)) {
+        const isBaseline = isBaselineDate(person, 'electricity', payload.date);
+        const pricePerUnit = form.pricePerUnit.valueAsNumber;
+        const fixedPrice = form.fixedPrice.valueAsNumber;
+        if (!isBaseline) {
+          payload.pricePerUnit = pricePerUnit;
+          payload.fixedPrice = fixedPrice;
+        }
+        if (!isValidDateValue(payload.date) || !Number.isFinite(payload.read) ||
+            (!isBaseline && ![pricePerUnit, fixedPrice].every(value => Number.isFinite(value) && value >= 0))) {
           window.alert('יש להזין קריאות ומחירים תקינים.');
           return;
         }
@@ -921,43 +944,138 @@
         render();
       });
 
-      window.addEventListener('pagehide', () => {
-        if (state.allowClientExit && navigator.sendBeacon) {
-          navigator.sendBeacon('/client-exit', '');
+    }
+
+    async function loadData() {
+      const response = await fetch('data.json', { cache: 'no-store' });
+      AppLifecycle.configure({
+        allowClientExit: response.headers.get('X-Allow-Client-Exit') === 'true'
+      });
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      dataIntegrity.setLoaded(response);
+      const parsed = await response.json();
+      const people = parsed && (Array.isArray(parsed.people) ? parsed.people : parsed.persons);
+      if (!Array.isArray(people)) {
+        throw new Error("Expected a 'people' or 'persons' array in the bills data.");
+      }
+      if (!people.every(isValidPerson)) {
+        throw new Error('The bills data contains an invalid person or utility reading.');
+      }
+      state.people = people;
+      state.selectedPersonId = state.people[0]?.id ?? null;
+      state.activeFilters = { waterDate: null, electricityDate: null };
+    }
+
+    function isValidPerson(person) {
+      if (!person || typeof person !== 'object' ||
+          typeof person.id !== 'string' || !person.id.trim() ||
+          typeof person.name !== 'string' || !person.name.trim()) return false;
+      return ['water', 'electricity'].every((utility) => {
+        const entries = person[utility];
+        if (entries == null) return true;
+        if (!Array.isArray(entries)) return false;
+        const baselineId = [...entries].sort((left, right) => String(left?.date ?? '').localeCompare(String(right?.date ?? '')))[0]?.id;
+        return entries.every((entry) => {
+          if (!entry || typeof entry !== 'object' ||
+              typeof entry.id !== 'string' || !entry.id.trim() ||
+              typeof entry.date !== 'string' ||
+              !Number.isFinite(Date.parse(entry.date)) ||
+              new Date(entry.date).toISOString().slice(0, 10) !== entry.date) return false;
+          const numbers = utility === 'water'
+            ? [entry.read, ...(entry.id === baselineId ? [] : [entry.averagePrice])]
+            : [entry.read, ...(entry.id === baselineId ? [] : [entry.pricePerUnit, entry.fixedPrice])];
+          return numbers.every(value => typeof value === 'number' && Number.isFinite(value) && value >= 0);
+        });
+      });
+    }
+
+    async function saveData() {
+      return dataIntegrity.save(async ({ headers }) => {
+        try {
+          const response = await fetch('update-list', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json; charset=utf-8',
+              ...headers
+            },
+            body: JSON.stringify({ people: state.people })
+          });
+          if (!response.ok && response.status !== 409 && response.status !== 428) {
+            let message = `Failed to save data (HTTP ${response.status}).`;
+            try {
+              const result = await response.json();
+              if (typeof result.error === 'string' && result.error) message = result.error;
+            } catch (error) {
+              console.warn('Could not read the server save error response.', error);
+            }
+            throw new Error(message);
+          }
+          return response;
+        } catch (error) {
+          window.alert(error.message);
+          return null;
         }
       });
     }
 
-    async function loadData() {
-      try {
-        const response = await fetch('data.json', { cache: 'no-store' });
-        if (!response.ok) throw new Error('Unable to read data file.');
-        state.allowClientExit = response.headers.get('X-Allow-Client-Exit') === 'true';
-        const parsed = await response.json();
-        const people = Array.isArray(parsed.people) ? parsed.people : [];
-        state.people = people.length ? people : clone(DEFAULT_DATA.people);
-      } catch (error) {
-        state.people = clone(DEFAULT_DATA.people);
+    async function saveEntryEdit(button) {
+      const editRow = button.closest('tr');
+      const { kind, id } = state.editingEntry || {};
+      const person = getSelectedPerson();
+      const entry = person?.[kind]?.find(item => item.id === id);
+      if (!editRow || !entry) return;
+
+      const isBaseline = isFirstReading(person, kind, id);
+      const fields = kind === 'water'
+        ? ['date', 'read', ...(isBaseline ? [] : ['averagePrice'])]
+        : ['date', 'read', ...(isBaseline ? [] : ['pricePerUnit', 'fixedPrice'])];
+      const values = {};
+      for (const field of fields) {
+        const input = editRow.querySelector(`[data-field="${field}"]`);
+        if (!input) return;
+        values[field] = field === 'date' ? input.value : input.valueAsNumber;
       }
-      if (!state.people.length) {
-        state.people = [{ id: cryptoId('person'), name: 'Person 1', water: [], electricity: [] }];
+      if (!isValidDateValue(values.date) ||
+          fields.slice(1).some(field => !Number.isFinite(values[field]) || values[field] < 0)) {
+        window.alert('יש להזין תאריך, קריאות ומחירים תקינים.');
+        return;
       }
-      state.selectedPersonId = state.people[0].id;
-      state.activeFilters = { waterDate: null, electricityDate: null };
+      const nextReadingDate = earliestReadingDate(person, kind, id);
+      if (isBaseline && values.date >= nextReadingDate) {
+        window.alert('תאריך קריאת הבסיס חייב להישאר לפני כל הקריאות האחרות.');
+        return;
+      }
+      if (!isBaseline && values.date <= nextReadingDate) {
+        window.alert('לא ניתן להעביר קריאה לתאריך של קריאת הבסיס או לפניה. קריאת הבסיס אינה כוללת מחיר.');
+        return;
+      }
+
+      const previousValues = Object.fromEntries(fields.map(field => [field, entry[field]]));
+      Object.assign(entry, values);
+      const response = await saveData();
+      if (!response?.ok) Object.assign(entry, previousValues);
+      state.editingEntry = null;
+      render();
     }
 
-    async function saveData() {
-      try {
-        const response = await fetch('/update-list', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ people: state.people })
-        });
-        if (!response.ok) {
-          throw new Error('Failed to save data.');
-        }
-      } catch (error) {
-        window.alert(error.message);
+    function renderDataNotice() {
+      const notice = document.getElementById('dataNotice');
+      const message = document.getElementById('dataNoticeMessage');
+      const action = document.getElementById('dataNoticeAction');
+      if (!notice || !message || !action) return;
+
+      if (dataIntegrity.hasConflict) {
+        message.textContent = 'הקובץ השתנה במקום אחר. לא ניתן לשמור; טען מחדש כדי להמשיך. שינויים שלא נשמרו יימחקו.';
+        action.textContent = 'טען מחדש';
+        action.classList.remove('hidden');
+        notice.classList.remove('hidden');
+      } else if (dataIntegrity.hasCheckError) {
+        message.textContent = 'לא ניתן לבדוק אם הקובץ השתנה. השמירה תיבדק מול השרת.';
+        action.textContent = 'נסה שוב';
+        action.classList.remove('hidden');
+        notice.classList.remove('hidden');
+      } else {
+        notice.classList.add('hidden');
       }
     }
 
@@ -981,10 +1099,6 @@
       return state.people.find(person => person.id === state.selectedPersonId) || null;
     }
 
-    function clone(value) {
-      return JSON.parse(JSON.stringify(value));
-    }
-
     function cryptoId(prefix) {
       const random = Math.random().toString(36).slice(2, 10);
       return `${prefix}-${Date.now()}-${random}`;
@@ -995,8 +1109,40 @@
       if (!form) return;
       form.classList.toggle('hidden', !open);
       if (open) {
+        updatePriceFields(kind);
         form.querySelector('input').focus();
       }
+    }
+
+    function isBaselineDate(person, kind, date, excludeId = null) {
+      const existing = (person?.[kind] || []).filter(entry => entry.id !== excludeId);
+      if (!existing.length) return true;
+      const earliestDate = existing.reduce((earliest, entry) => entry.date < earliest ? entry.date : earliest, existing[0].date);
+      return isValidDateValue(date) && date < earliestDate;
+    }
+
+    function earliestReadingDate(person, kind, excludeId = null) {
+      return (person?.[kind] || [])
+        .filter(entry => entry.id !== excludeId)
+        .reduce((earliest, entry) => entry.date < earliest ? entry.date : earliest, '9999-12-31');
+    }
+
+    function isFirstReading(person, kind, id) {
+      const entries = [...(person?.[kind] || [])]
+        .sort((left, right) => String(left?.date ?? '').localeCompare(String(right?.date ?? '')));
+      return entries[0]?.id === id;
+    }
+
+    function updatePriceFields(kind) {
+      const form = document.getElementById(`${kind}Form`);
+      const person = getSelectedPerson();
+      if (!form || !person) return;
+      const baseline = isBaselineDate(person, kind, form.date.value);
+      form.querySelectorAll(`[data-price-field="${kind}"]`).forEach(input => {
+        input.closest('label').classList.toggle('hidden', baseline);
+        input.required = !baseline;
+      });
+      form.querySelector(`[data-baseline-note="${kind}"]`).classList.toggle('hidden', !baseline);
     }
 
     function render() {
@@ -1022,6 +1168,8 @@
 
       renderPersonList();
       const person = getSelectedPerson();
+      updatePriceFields('water');
+      updatePriceFields('electricity');
       const personName = document.getElementById('personName');
       personName.textContent = person ? person.name : 'בחר אדם';
 
@@ -1037,16 +1185,16 @@
 
       const waterRows = getWaterRows(person);
       const electricityRows = getElectricityRows(person);
-      const waterTotal = waterRows.reduce((total, entry) => total + entry.totalAmount, 0);
-      const electricityTotal = electricityRows.reduce((total, entry) => total + entry.totalAmount, 0);
+      const waterTotal = waterRows.reduce((total, entry) => total + (entry.totalAmount ?? 0), 0);
+      const electricityTotal = electricityRows.reduce((total, entry) => total + (entry.totalAmount ?? 0), 0);
 
       document.getElementById('waterSummary').textContent = formatMoney(waterTotal);
       document.getElementById('electricitySummary').textContent = formatMoney(electricityTotal);
       document.getElementById('totalSummary').textContent = formatMoney(waterTotal + electricityTotal);
 
-      renderOverviewTable(person, waterRows, electricityRows);
-      renderWaterTable(person, waterRows);
-      renderElectricityTable(person, electricityRows);
+      renderOverviewTable(waterRows, electricityRows);
+      renderWaterTable(waterRows);
+      renderElectricityTable(electricityRows);
     }
 
     function renderPersonList() {
@@ -1055,19 +1203,19 @@
         const selected = person.id === state.selectedPersonId ? 'selected' : '';
         const waterRows = getWaterRows(person);
         const electricityRows = getElectricityRows(person);
-        const total = waterRows.reduce((sum, row) => sum + row.totalAmount, 0) + electricityRows.reduce((sum, row) => sum + row.totalAmount, 0);
+        const total = waterRows.reduce((sum, row) => sum + (row.totalAmount ?? 0), 0) + electricityRows.reduce((sum, row) => sum + (row.totalAmount ?? 0), 0);
         return `
           <div class="person-card">
-            <div class="person-item ${selected}" data-person-id="${person.id}">
-            <button type="button" class="person-select" data-action="select-person" data-person-id="${person.id}">
+            <div class="person-item ${selected}" data-person-id="${escapeHtml(person.id)}">
+            <button type="button" class="person-select" data-action="select-person" data-person-id="${escapeHtml(person.id)}">
               <span class="person-name">
                 <span>${escapeHtml(person.name)}</span>
                 <span class="person-meta">${formatMoney(total)} סה"כ</span>
               </span>
             </button>
             <div class="person-actions">
-              <button type="button" class="ghost-button" data-action="edit-person" data-person-id="${person.id}" aria-label="ערוך פרטים עבור ${escapeHtml(person.name)}" title="ערוך פרטים">✎</button>
-              <button type="button" class="danger-button" data-action="remove-person" data-person-id="${person.id}" aria-label="Remove ${escapeHtml(person.name)}">✕</button>
+              <button type="button" class="ghost-button" data-action="edit-person" data-person-id="${escapeHtml(person.id)}" aria-label="ערוך פרטים עבור ${escapeHtml(person.name)}" title="ערוך פרטים">✎</button>
+              <button type="button" class="danger-button" data-action="remove-person" data-person-id="${escapeHtml(person.id)}" aria-label="Remove ${escapeHtml(person.name)}">✕</button>
             </div>
             </div>
             <div class="person-details ${state.expandedPersonId === person.id ? '' : 'hidden'}">
@@ -1079,7 +1227,7 @@
       }).join('');
     }
 
-    function renderOverviewTable(person, waterRows, electricityRows) {
+    function renderOverviewTable(waterRows, electricityRows) {
       const combined = buildCombinedPeriods(waterRows, electricityRows);
       const rows = combined.slice(0, 6);
       const activeWaterDate = state.activeFilters.waterDate;
@@ -1105,13 +1253,13 @@
             ${rows.map((row) => `
               <tr class="period-row">
                 <td>${formatDate(row.date)}</td>
-                <td class="amount">${formatMoney(row.waterTotal)}</td>
-                <td class="amount">${formatMoney(row.electricityTotal)}</td>
+                <td class="amount">${formatOptionalMoney(row.waterTotal)}</td>
+                <td class="amount">${formatOptionalMoney(row.electricityTotal)}</td>
                 <td class="amount">${formatMoney(row.total)}</td>
                 <td>
                   <div class="action-cluster">
-                      <button class="outline-button water-period-filter ${row.date === activeWaterDate ? 'filter-selected' : ''}" type="button" data-action="view-water" data-date="${row.date}" aria-pressed="${row.date === activeWaterDate}" ${activeWaterDate && row.date !== activeWaterDate ? 'disabled' : ''}>מים</button>
-                      <button class="outline-button electricity-period-filter ${row.date === activeElectricityDate ? 'filter-selected' : ''}" type="button" data-action="view-electricity" data-date="${row.date}" aria-pressed="${row.date === activeElectricityDate}" ${activeElectricityDate && row.date !== activeElectricityDate ? 'disabled' : ''}>חשמל</button>
+                      <button class="outline-button water-period-filter ${row.date === activeWaterDate ? 'filter-selected' : ''}" type="button" data-action="view-water" data-date="${escapeHtml(row.date)}" aria-pressed="${row.date === activeWaterDate}" ${activeWaterDate && row.date !== activeWaterDate ? 'disabled' : ''}>מים</button>
+                      <button class="outline-button electricity-period-filter ${row.date === activeElectricityDate ? 'filter-selected' : ''}" type="button" data-action="view-electricity" data-date="${escapeHtml(row.date)}" aria-pressed="${row.date === activeElectricityDate}" ${activeElectricityDate && row.date !== activeElectricityDate ? 'disabled' : ''}>חשמל</button>
                   </div>
                 </td>
               </tr>
@@ -1121,7 +1269,7 @@
       `;
     }
 
-    function renderWaterTable(person, waterRows) {
+    function renderWaterTable(waterRows) {
       const activeDate = state.activeFilters.waterDate;
       const filteredRows = (activeDate ? waterRows.filter(row => row.date === activeDate) : waterRows.slice(-6)).slice().reverse();
       const filterIndicator = document.getElementById('waterFilter');
@@ -1150,26 +1298,13 @@
             </tr>
           </thead>
           <tbody>
-            ${filteredRows.map((row) => `
-              <tr>
-                <td>${formatDate(row.date)}</td>
-                <td>${formatNumber(row.read)}</td>
-                <td>${formatNumber(row.previousRead)}</td>
-                <td>${formatNumber(row.usage)}</td>
-                <td>${formatMoney(row.averagePrice)}</td>
-                <td>${formatNumber(row.usage)}</td>
-                <td class="amount">${formatMoney(row.totalAmount)}</td>
-                <td>
-                  <button class="danger-button" type="button" data-action="remove-water" data-id="${row.id}">הסר</button>
-                </td>
-              </tr>
-            `).join('')}
+            ${filteredRows.map((row) => renderReadingRow(row, 'water')).join('')}
           </tbody>
         </table>
       `;
     }
 
-    function renderElectricityTable(person, electricityRows) {
+    function renderElectricityTable(electricityRows) {
       const activeDate = state.activeFilters.electricityDate;
       const filteredRows = (activeDate ? electricityRows.filter(row => row.date === activeDate) : electricityRows.slice(-6)).slice().reverse();
       const filterIndicator = document.getElementById('electricityFilter');
@@ -1198,20 +1333,7 @@
             </tr>
           </thead>
           <tbody>
-            ${filteredRows.map((row) => `
-              <tr>
-                <td>${formatDate(row.date)}</td>
-                <td>${formatNumber(row.read)} kWh</td>
-                <td>${formatNumber(row.previousRead)} kWh</td>
-                <td>${formatNumber(row.usage)} kWh</td>
-                <td>${formatMoney(row.pricePerUnit)}</td>
-                <td>${formatMoney(row.fixedPrice)}</td>
-                <td class="amount">${formatMoney(row.totalAmount)}</td>
-                <td>
-                  <button class="danger-button" type="button" data-action="remove-electricity" data-id="${row.id}">הסר</button>
-                </td>
-              </tr>
-            `).join('')}
+            ${filteredRows.map((row) => renderReadingRow(row, 'electricity')).join('')}
           </tbody>
         </table>
       `;
@@ -1220,15 +1342,16 @@
     function getWaterRows(person) {
       const rows = [...(person.water || [])].sort((a, b) => new Date(a.date) - new Date(b.date));
       return rows.map((entry, index) => {
-        const previousRead = index === 0 ? 0 : rows[index - 1].read;
-        const usage = Math.max(0, Number(entry.read) - previousRead);
+        const previousRead = index === 0 ? null : rows[index - 1].read;
+        const usage = previousRead === null ? null : Math.max(0, Number(entry.read) - previousRead);
         const averagePrice = Number(entry.averagePrice || 0);
         return {
           ...entry,
+          isFirst: index === 0,
           previousRead,
           usage,
           averagePrice,
-          totalAmount: usage * averagePrice
+          totalAmount: usage === null ? null : usage * averagePrice
         };
       });
     }
@@ -1236,57 +1359,118 @@
     function getElectricityRows(person) {
       const rows = [...(person.electricity || [])].sort((a, b) => new Date(a.date) - new Date(b.date));
       return rows.map((entry, index) => {
-        const previousRead = index === 0 ? 0 : rows[index - 1].read;
-        const usage = Math.max(0, Number(entry.read) - previousRead);
+        const previousRead = index === 0 ? null : rows[index - 1].read;
+        const usage = previousRead === null ? null : Math.max(0, Number(entry.read) - previousRead);
         const pricePerUnit = Number(entry.pricePerUnit || 0);
         const fixedPrice = Number(entry.fixedPrice || 0);
         return {
           ...entry,
+          isFirst: index === 0,
           previousRead,
           usage,
           pricePerUnit,
           fixedPrice,
-          totalAmount: (usage * pricePerUnit) + fixedPrice
+          totalAmount: usage === null ? null : (usage * pricePerUnit) + fixedPrice
         };
       });
     }
 
-    function buildCombinedPeriods(waterRows, electricityRows) {
-      const dates = [...new Set([...waterRows.map(row => row.date), ...electricityRows.map(row => row.date)])]
-        .sort((a, b) => new Date(b) - new Date(a));
+    function renderReadingRow(row, kind) {
+      const isEditing = state.editingEntry?.kind === kind && state.editingEntry.id === row.id;
+      if (isEditing) {
+        const dateInput = `<input class="edit-entry-input" data-field="date" type="date" lang="en" dir="ltr" value="${escapeHtml(row.date)}" required aria-label="תאריך">`;
+        const readInput = `<input class="edit-entry-input" data-field="read" type="number" min="0" step="0.01" value="${escapeHtml(row.read)}" required aria-label="קריאה">`;
+        const prev = `<td>${row.previousRead === null ? '—' : formatNumber(row.previousRead)}${kind === 'electricity' && row.previousRead !== null ? ' kWh' : ''}</td>`;
+        const usage = `<td>${row.usage === null ? '—' : `${formatNumber(row.usage)}${kind === 'electricity' ? ' kWh' : ''}`}</td>`;
+        const rateInput = row.isFirst ? '—' : `<input class="edit-entry-input" data-field="${kind === 'water' ? 'averagePrice' : 'pricePerUnit'}" type="number" min="0" step="any" value="${escapeHtml(kind === 'water' ? row.averagePrice : row.pricePerUnit)}" required aria-label="מחיר">`;
+        const actions = `<td><div class="action-cluster"><button class="primary-button" type="button" data-action="save-entry-edit">שמור</button><button class="ghost-button" type="button" data-action="cancel-entry-edit">ביטול</button></div></td>`;
+        if (kind === 'water') {
+          return `<tr><td>${dateInput}</td><td>${readInput}</td>${prev}${usage}<td>${rateInput}</td><td>${row.usage === null ? '—' : formatNumber(row.usage)}</td><td class="amount">${formatOptionalMoney(row.totalAmount)}</td>${actions}</tr>`;
+        }
+        const fixedInput = row.isFirst ? '—' : `<input class="edit-entry-input" data-field="fixedPrice" type="number" min="0" step="any" value="${escapeHtml(row.fixedPrice)}" required aria-label="תשלום קבוע">`;
+        return `<tr><td>${dateInput}</td><td>${readInput} kWh</td>${prev}${usage}<td>${rateInput}</td><td>${fixedInput}</td><td class="amount">${formatOptionalMoney(row.totalAmount)}</td>${actions}</tr>`;
+      }
 
-      return dates.map((date) => {
-        const waterRow = waterRows.find(row => row.date === date) || null;
-        const electricityRow = electricityRows.find(row => row.date === date) || null;
-        const waterTotal = waterRow ? waterRow.totalAmount : 0;
-        const electricityTotal = electricityRow ? electricityRow.totalAmount : 0;
-        return {
-          date,
-          waterTotal,
-          electricityTotal,
-          total: waterTotal + electricityTotal
-        };
-      });
+      const readValue = `${formatNumber(row.read)}${kind === 'electricity' ? ' kWh' : ''}`;
+      const previousValue = row.previousRead === null
+        ? '—'
+        : `${formatNumber(row.previousRead)}${kind === 'electricity' ? ' kWh' : ''}`;
+      const usageValue = row.usage === null
+        ? '—'
+        : `${formatNumber(row.usage)}${kind === 'electricity' ? ' kWh' : ''}`;
+      const rate = row.isFirst
+        ? '—'
+        : formatOptionalPrice(kind === 'water' ? row.averagePrice : row.pricePerUnit);
+      const extraCell = kind === 'electricity'
+        ? `<td>${row.isFirst ? '—' : formatMoney(row.fixedPrice)}</td>`
+        : `<td>${row.usage === null ? '—' : formatNumber(row.usage)}</td>`;
+      const action = kind === 'water' ? 'edit-water' : 'edit-electricity';
+      const removeAction = kind === 'water' ? 'remove-water' : 'remove-electricity';
+      return `<tr>
+        <td>${formatDate(row.date)}</td>
+        <td>${readValue}</td>
+        <td>${previousValue}</td>
+        <td>${usageValue}</td>
+        <td>${rate}</td>
+        ${extraCell}
+        <td class="amount">${formatOptionalMoney(row.totalAmount)}</td>
+        <td><div class="action-cluster">
+          <button class="ghost-button" type="button" data-action="${action}" data-id="${escapeHtml(row.id)}" aria-label="ערוך קריאה">ערוך</button>
+          <button class="danger-button" type="button" data-action="${removeAction}" data-id="${escapeHtml(row.id)}">הסר</button>
+        </div></td>
+      </tr>`;
+    }
+
+    function buildCombinedPeriods(waterRows, electricityRows) {
+      const periods = new Map();
+      for (const row of waterRows) {
+        if (!periods.has(row.date)) {
+          periods.set(row.date, { date: row.date, waterTotal: row.totalAmount, electricityTotal: 0, hasElectricity: false });
+        }
+      }
+      for (const row of electricityRows) {
+        const period = periods.get(row.date);
+        if (period) {
+          if (!period.hasElectricity) {
+            period.electricityTotal = row.totalAmount;
+            period.hasElectricity = true;
+          }
+        } else {
+          periods.set(row.date, { date: row.date, waterTotal: 0, electricityTotal: row.totalAmount, hasElectricity: true });
+        }
+      }
+      return [...periods.values()]
+        .sort((left, right) => right.date.localeCompare(left.date))
+        .map(({ hasElectricity, ...period }) => ({ ...period, total: (period.waterTotal ?? 0) + (period.electricityTotal ?? 0) }));
     }
 
     function formatDate(value) {
       if (!value) return '—';
       const date = new Date(`${value}T00:00:00`);
-      return Number.isNaN(date.getTime()) ? value : date.toLocaleDateString('he-IL', { day: '2-digit', month: 'short', year: 'numeric' });
+      const formatted = Number.isNaN(date.getTime())
+        ? String(value)
+        : date.toLocaleDateString('he-IL', { day: '2-digit', month: 'short', year: 'numeric' });
+      return escapeHtml(formatted);
     }
 
     function formatNumber(value) {
       return Number.isFinite(value) ? Number(value).toFixed(2) : '0.00';
     }
 
-    function escapeHtml(value) {
-      return String(value)
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;')
-        .replace(/'/g, '&#39;');
+    function formatOptionalMoney(value) {
+      return value == null ? '—' : formatMoney(value);
     }
+
+    function formatOptionalPrice(value) {
+      if (value == null) return '—';
+      return new Intl.NumberFormat(state.rtl ? 'he-IL' : 'en-GB', {
+        style: 'currency',
+        currency: state.currency,
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 20
+      }).format(value);
+    }
+
   </script>
 </body>
 </html>
