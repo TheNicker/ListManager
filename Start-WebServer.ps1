@@ -342,6 +342,8 @@ $response.OutputStream.Close()
                 $response.AddHeader("X-Edit-Password-Required", $EditPasswordRequired.ToString().ToLowerInvariant())
                 $response.AddHeader("X-Allow-Client-Exit", $AllowClientExit.ToString().ToLowerInvariant())
                 $response.AddHeader("X-List-Loaded-From-Gzip", $isCompressedList.ToString().ToLowerInvariant())
+                # Clients name downloads after the file that is actually served, not after the data.json URL.
+                $response.AddHeader("X-Data-File-Name", [Uri]::EscapeDataString([IO.Path]::GetFileName($dataFilePath)))
                 $response.AddHeader("Cache-Control", "no-store")
             }
             $localPathExists = $isCompressedList

@@ -163,6 +163,14 @@
       font-weight: 600;
     }
 
+    .backup-status {
+      margin: 8px 0 0;
+      min-height: 1.2em;
+      color: var(--muted);
+      font-size: 13px;
+      overflow-wrap: anywhere;
+    }
+
     button:disabled {
       opacity: 0.45;
       filter: grayscale(0.35);
@@ -522,6 +530,11 @@
         <label for="rtlToggleButton">כיוון תצוגה</label>
         <button id="rtlToggleButton" type="button" class="ghost-button" aria-pressed="true">RTL</button>
       </div>
+      <div class="layout-control">
+        <label for="backupButton">גיבוי נתונים</label>
+        <button id="backupButton" type="button" class="ghost-button" title="שמור עותק gz מתוך תאריך">גיבוי</button>
+      </div>
+      <p id="backupStatus" class="backup-status" aria-live="polite"></p>
     </aside>
 
     <main class="content">
@@ -630,6 +643,7 @@
 
   <script src="/shared/Html.js"></script>
   <script src="/shared/DataIntegrity.js"></script>
+  <script src="/shared/Backup.js"></script>
   <script src="/shared/AppLifecycle.js"></script>
   <script>
     const state = {
@@ -644,6 +658,12 @@
     const dataIntegrity = DataIntegrity.create({
       onChange: renderDataNotice,
       onConflict: () => AppLifecycle.reloadPage()
+    });
+
+    const backupStatus = document.getElementById('backupStatus');
+    const dataBackup = Backup.create({
+      onDone: result => { backupStatus.textContent = `נשמר: ${result.fileName}`; },
+      onCancel: () => { backupStatus.textContent = 'הגיבוי בוטל.'; }
     });
 
     function getMoneyFormatter() {
@@ -720,6 +740,18 @@
         rtlToggleButton.textContent = state.rtl ? 'RTL' : 'LTR';
         rtlToggleButton.setAttribute('aria-pressed', String(state.rtl));
         render();
+      });
+
+      document.getElementById('backupButton').addEventListener('click', async (event) => {
+        const button = event.currentTarget;
+        button.disabled = true;
+        try {
+          await dataBackup.run();
+        } catch (error) {
+          backupStatus.textContent = `הגיבוי נכשל: ${error.message}`;
+        } finally {
+          button.disabled = false;
+        }
       });
 
       document.querySelectorAll('#waterForm [name="date"], #electricityForm [name="date"]').forEach(input => {

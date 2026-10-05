@@ -75,6 +75,12 @@ Bills ships three invented people, each with a water and an electricity baseline
 
 Sample files are read and written like any other data file, so edits made while serving one persist to that file. To make a sample the default, replace `apps/<app>/data.json` with it.
 
+## Backups
+
+Both apps have a **Backup** control that writes a copy of the current data file to disk. The copy is always gzip, and its name is the served file's own name with a local timestamp, for example `contacts_2026-10-05_18-07-33.json.gz` or `Passwords2_2026-10-05_18-09-03.gz` when the served file was already compressed. The time part uses dashes because Windows rejects colons in file names.
+
+The name follows the file the server actually serves, which matters when `-DataFile` renames it, since the page only requests the `data.json` URL; the server reports the real name in the `X-Data-File-Name` response header. Where the copy is stored is chosen by the browser: with the File System Access API the save dialog opens and any folder can be picked, and otherwise the file goes to the browser's configured download location or save dialog.
+
 ## Data integrity
 
 Both apps share the ETag polling and conditional-save client logic in `shared/DataIntegrity.js`. The page checks for changes every five seconds and when its tab becomes visible. When another process changes a data file, the app automatically reloads; this discards unsaved browser edits. The server independently rejects stale writes, and saves use an atomic file replacement. The server rejects save bodies larger than 10 MiB and validates each app's document shape.
@@ -98,6 +104,7 @@ pwsh -File tests/webserver.test.ps1
 - Search, sort, resize columns, or copy a field value.
 - Add, edit, or remove records. **Quick delete** skips confirmation.
 - Use **Edit columns** to add, rename, change the type or required flag of, or remove columns.
+- **Backup** saves a timestamped gzip copy of the served data file.
 - **RTL** mirrors the list layout. **Blur list** visually obscures record fields but does not encrypt or protect the underlying data.
 
 Edits save to that app's JSON or gzip data file.

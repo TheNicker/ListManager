@@ -242,6 +242,7 @@
         <label class="quick-delete-control"><input id="quickDeleteCheckbox" type="checkbox"><span>Quick delete</span></label>
         <button id="blurToggleButton" type="button" aria-pressed="false" title="Blur list text">Blur list</button>
         <button id="directionToggleButton" type="button" aria-pressed="false" title="Switch to right-to-left layout" aria-label="Right-to-left layout">RTL</button>
+        <button id="backupButton" type="button" title="Save a timestamped gzip copy of this list">Backup</button>
         <button id="addRecordButton" class="primary-button" type="button" aria-label="Add record" title="Add record">+</button>
       </div>
     </div>
@@ -252,6 +253,7 @@
 
   <script src="/shared/Html.js"></script>
   <script src="/shared/DataIntegrity.js"></script>
+  <script src="/shared/Backup.js"></script>
   <script src="/shared/AppLifecycle.js"></script>
   <script>
     let listDocument = { schema: { title: 'List', fields: [] }, records: [] };
@@ -270,6 +272,10 @@
     const dataIntegrity = DataIntegrity.create({
       onChange: renderDataNotice,
       onConflict: () => AppLifecycle.reloadPage()
+    });
+    const dataBackup = Backup.create({
+      onDone: result => showToast(`Saved ${result.fileName}`),
+      onCancel: () => showToast('Backup cancelled.')
     });
 
     function showToast(message) {
@@ -954,6 +960,17 @@
     });
 
     document.getElementById('directionToggleButton').addEventListener('click', toggleDirection);
+
+    document.getElementById('backupButton').addEventListener('click', async function () {
+      this.disabled = true;
+      try {
+        await dataBackup.run();
+      } catch (error) {
+        showToast(`Backup failed: ${error.message}`);
+      } finally {
+        this.disabled = false;
+      }
+    });
 
     document.getElementById('quickDeleteCheckbox').addEventListener('change', function () {
       if (this.checked) {
