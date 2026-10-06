@@ -128,6 +128,24 @@ Test-Case 'an absolute data file path is rejected' {
     Assert-DataFileRejected -DataFile 'C:\temp\data.json' -ExpectedPattern 'must be a relative path inside each app folder'
 }
 
+Test-Case 'omitting -DataFile falls back to data.json.gz when only the gzip file exists' {
+    $gzRoot = Join-Path ([IO.Path]::GetTempPath()) "listmanager-gz-only"
+    if (Test-Path -LiteralPath $gzRoot) { Remove-Item -LiteralPath $gzRoot -Recurse -Force }
+    $gzApp = Join-Path (Join-Path $gzRoot 'apps') 'listmanager'
+    New-Item -ItemType Directory -Path $gzApp -Force | Out-Null
+    Set-Content -LiteralPath (Join-Path $gzApp 'Validate.ps1') -Value 'function Test-Document { param($Document) }'
+    $jsonBytes = [Text.Encoding]::UTF8.GetBytes('{"schema":{"fields":[]},"records":[]}')
+    $ms = [IO.MemoryStream]::new()
+    $gz = [IO.Compression.GZipStream]::new($ms, [IO.Compression.CompressionMode]::Compress, $true)
+    $gz.Write($jsonBytes, 0, $jsonBytes.Length)
+    $gz.Close()
+    [IO.File]::WriteAllBytes((Join-Path $gzApp 'data.json.gz'), $ms.ToArray())
+    $ms.Close()
+    $message = Get-ErrorMessage { Invoke-ServerOnOccupiedPort -Root $gzRoot -App 'listmanager' }
+    if ($message -match 'was not found') { throw "expected the gzip fallback to resolve, got: $message" }
+    if ($message -notmatch 'already in use') { throw "expected the run to reach the bind step, got: $message" }
+}
+
 Test-Case 'omitting -DataFile still starts (falls back to data.json)' {
     $message = Get-ErrorMessage { Invoke-ServerOnOccupiedPort -Root $fixtureRoot -App 'listmanager' }
     if (-not $message) { throw 'expected the run to fail at the bind step, but it did not fail' }

@@ -46,13 +46,18 @@ foreach ($appName in @("listmanager", "bills")) {
 }
 
 # Confirm the selected data file exists now, so a typo fails at startup instead of as a silent 404 later.
+# Without -DataFile, an app falls back to data.json.gz when present, then data.json.
 if ($DataFile) {
     $missingDataFiles = @()
     foreach ($appName in $selectedAppNames) {
         $appRoot = Join-Path (Join-Path $Root "apps") $appName
-        $appDataPath = [IO.Path]::GetFullPath((Join-Path $appRoot $DataFile))
-        if (-not (Test-Path -LiteralPath $appDataPath -PathType Leaf)) {
-            $missingDataFiles += "$appDataPath (for app '$appName')"
+        $candidatePaths = @([IO.Path]::GetFullPath((Join-Path $appRoot $DataFile)))
+        if (-not $dataFileWasSpecified) {
+            $candidatePaths += [IO.Path]::GetFullPath((Join-Path $appRoot "$DataFile.gz"))
+        }
+        $foundDataFile = $candidatePaths | Where-Object { Test-Path -LiteralPath $_ -PathType Leaf } | Select-Object -First 1
+        if (-not $foundDataFile) {
+            $missingDataFiles += "$($candidatePaths -join ' or ') (for app '$appName')"
         }
     }
     if ($missingDataFiles.Count) {
