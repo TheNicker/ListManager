@@ -247,16 +247,6 @@ $script = {
         return $files | Sort-Object { Get-BackupTime $_ } -Descending | Select-Object -First 1
     }
 
-    function Get-BackupFileName {
-        param([string]$DataFilePath, [DateTime]$Date)
-        $fileName = [IO.Path]::GetFileName($DataFilePath)
-        $extension = [IO.Path]::GetExtension($fileName)
-        $baseName = $fileName.Substring(0, $fileName.Length - $extension.Length)
-        $timestamp = $Date.ToString("yyyy-MM-dd_HH-mm-ss")
-        $candidate = "${baseName}_${timestamp}${extension}"
-        return $candidate
-    }
-
     function Get-UniqueBackupFileName {
         param([string]$BackupDir, [string]$BaseName, [string]$Extension)
         $timestamp = (Get-Date).ToString("yyyy-MM-dd_HH-mm-ss")
@@ -273,6 +263,27 @@ $script = {
                 return $candidate
             }
             $suffix++
+        }
+    }
+
+    function Write-GzipFile {
+        param([string]$SourcePath, [string]$DestinationPath)
+        $sourceBytes = [IO.File]::ReadAllBytes($SourcePath)
+        $compressedStream = [IO.MemoryStream]::new()
+        try {
+            $gzipStream = [IO.Compression.GZipStream]::new(
+                $compressedStream,
+                [IO.Compression.CompressionMode]::Compress,
+                $true
+            )
+            try {
+                $gzipStream.Write($sourceBytes, 0, $sourceBytes.Length)
+            } finally {
+                $gzipStream.Dispose()
+            }
+            [IO.File]::WriteAllBytes($DestinationPath, $compressedStream.ToArray())
+        } finally {
+            $compressedStream.Dispose()
         }
     }
 
@@ -658,9 +669,18 @@ $response.OutputStream.Close()
                                         }
                                     }
                                     if ($shouldBackup -and [IO.File]::Exists($backupPath)) {
-                                        $backupFileName = Get-UniqueBackupFileName $backupDir $baseName $extension
+                                        # Backups are always gzip, even when the data file itself is plain
+                                        # JSON, so every file in the backups folder shares one compressed
+                                        # format. An already-compressed data file is moved as-is; a plain
+                                        # JSON one is compressed here first.
+                                        $backupFileName = Get-UniqueBackupFileName $backupDir $baseName '.gz'
                                         $destPath = Join-Path $backupDir $backupFileName
-                                        Move-Item -LiteralPath $backupPath -Destination $destPath -Force
+                                        if ($extension -ieq '.gz') {
+                                            Move-Item -LiteralPath $backupPath -Destination $destPath -Force
+                                        } else {
+                                            Write-GzipFile -SourcePath $backupPath -DestinationPath $destPath
+                                            [IO.File]::Delete($backupPath)
+                                        }
                                         Write-Host "[INFO] Backup written: $destPath"
                                         Rotate-Backups $backupDir $baseName $BackupRetentionCount
                                         $backupPath = $null
