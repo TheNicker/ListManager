@@ -1,4 +1,5 @@
 # Local backups and temporary replacement files may contain personal data.
+backups/
 *.backup
 *.backup.*
 *.bak

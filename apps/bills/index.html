@@ -642,10 +642,15 @@
   </div>
 
   <script src="/shared/Html.js"></script>
+  <script src="Utils.js"></script>
+  <script src="Bills.js"></script>
   <script src="/shared/DataIntegrity.js"></script>
   <script src="/shared/Backup.js"></script>
   <script src="/shared/AppLifecycle.js"></script>
   <script>
+    const { isValidDateValue, formatDate, cryptoId } = Utils;
+    const escapeHtml = window.escapeHtml;
+
     const state = {
       people: [],
       selectedPersonId: null,
@@ -655,6 +660,7 @@
       currency: 'ILS',
       rtl: true
     };
+
     const dataIntegrity = DataIntegrity.create({
       onChange: renderDataNotice,
       onConflict: () => AppLifecycle.reloadPage()
@@ -667,24 +673,35 @@
     });
 
     function getMoneyFormatter() {
-      const locale = state.rtl ? 'he-IL' : 'en-GB';
-      return new Intl.NumberFormat(locale, {
+      return Utils.createMoneyFormatter(state.currency, state.rtl ? 'he-IL' : 'en-GB');
+    }
+
+    function getPriceFormatter() {
+      return new Intl.NumberFormat(state.rtl ? 'he-IL' : 'en-GB', {
         style: 'currency',
         currency: state.currency,
         minimumFractionDigits: 2,
-        maximumFractionDigits: 2
+        maximumFractionDigits: 20
       });
     }
 
-    function isValidDateValue(value) {
-      if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
-      const date = new Date(`${value}T00:00:00Z`);
-      return Number.isFinite(date.getTime()) && date.toISOString().slice(0, 10) === value;
+    const bills = Bills.create({
+      moneyFormatter: getMoneyFormatter(),
+      priceFormatter: getPriceFormatter()
+    });
+
+    function refreshFormatters() {
+      bills.setFormatters(getMoneyFormatter(), getPriceFormatter());
     }
 
-    function formatMoney(value) {
-      return getMoneyFormatter().format(Number(value || 0));
+    function resetFilters() {
+      state.activeFilters = { waterDate: null, electricityDate: null };
     }
+
+    const TABLE_HEADERS = {
+      water: ['תאריך', 'קריאה', 'קודמת', 'צריכה', 'מחיר ממוצע', 'סה"כ שימוש', 'סכום', 'פעולות'],
+      electricity: ['תאריך', 'קריאה', 'קודמת', 'צריכה', 'מחיר ליחידה', 'קבוע', 'סה"כ', 'פעולות']
+    };
 
     document.addEventListener('DOMContentLoaded', init);
 
@@ -696,6 +713,7 @@
         return;
       }
       bindEvents();
+      refreshFormatters();
       render();
       dataIntegrity.start();
     }
@@ -731,6 +749,7 @@
 
       currencySelect.addEventListener('change', (event) => {
         state.currency = event.target.value;
+        refreshFormatters();
         render();
       });
 
@@ -739,6 +758,7 @@
         document.documentElement.dir = state.rtl ? 'rtl' : 'ltr';
         rtlToggleButton.textContent = state.rtl ? 'RTL' : 'LTR';
         rtlToggleButton.setAttribute('aria-pressed', String(state.rtl));
+        refreshFormatters();
         render();
       });
 
@@ -796,7 +816,7 @@
           document.getElementById('personForm').classList.add('hidden');
           const personId = button.dataset.personId;
           state.selectedPersonId = personId;
-          state.activeFilters = { waterDate: null, electricityDate: null };
+          resetFilters();
           if (event.detail === 2) {
             state.expandedPersonId = state.expandedPersonId === personId ? null : personId;
           }
@@ -819,31 +839,16 @@
           state.selectedPersonId = selectedPersonId === personId ? (state.people[0]?.id ?? null) : selectedPersonId;
           if (state.expandedPersonId === personId) state.expandedPersonId = null;
           document.getElementById('personForm').classList.add('hidden');
-          state.activeFilters = { waterDate: null, electricityDate: null };
+          resetFilters();
           await saveData();
           render();
           return;
         }
 
-        if (action === 'toggle-water-form') {
-          toggleForm('water', true);
-          return;
-        }
-
-        if (action === 'cancel-water-form') {
-          toggleForm('water', false);
-          return;
-        }
-
-        if (action === 'toggle-electricity-form') {
-          toggleForm('electricity', true);
-          return;
-        }
-
-        if (action === 'cancel-electricity-form') {
-          toggleForm('electricity', false);
-          return;
-        }
+        if (action === 'toggle-water-form') { toggleForm('water', true); return; }
+        if (action === 'cancel-water-form') { toggleForm('water', false); return; }
+        if (action === 'toggle-electricity-form') { toggleForm('electricity', true); return; }
+        if (action === 'cancel-electricity-form') { toggleForm('electricity', false); return; }
 
         if (action === 'view-water' || action === 'view-electricity') {
           const kind = action === 'view-water' ? 'water' : 'electricity';
@@ -862,23 +867,13 @@
           return;
         }
 
-        if (action === 'remove-water') {
-          if (!window.confirm('למחוק את רשומת המים הזו?')) return;
+        if (action === 'remove-water' || action === 'remove-electricity') {
+          const kind = action === 'remove-water' ? 'water' : 'electricity';
+          if (!window.confirm(`למחוק את רשומת ה${bills.getUtilityLabel(kind)} הזו?`)) return;
           const person = getSelectedPerson();
           if (!person) return;
-          person.water = person.water.filter(entry => entry.id !== button.dataset.id);
-          state.activeFilters.waterDate = null;
-          await saveData();
-          render();
-          return;
-        }
-
-        if (action === 'remove-electricity') {
-          if (!window.confirm('למחוק את רשומת החשמל הזו?')) return;
-          const person = getSelectedPerson();
-          if (!person) return;
-          person.electricity = person.electricity.filter(entry => entry.id !== button.dataset.id);
-          state.activeFilters.electricityDate = null;
+          person[kind] = person[kind].filter(entry => entry.id !== button.dataset.id);
+          state.activeFilters[`${kind}Date`] = null;
           await saveData();
           render();
           return;
@@ -888,7 +883,7 @@
           const person = state.people.find(entry => entry.id === button.dataset.personId);
           if (!person) return;
           state.selectedPersonId = person.id;
-          state.activeFilters = { waterDate: null, electricityDate: null };
+          resetFilters();
           const form = document.getElementById('personForm');
           form.dataset.personId = person.id;
           form.elements.namedItem('name').value = person.name || '';
@@ -920,84 +915,40 @@
         render();
       });
 
-      document.getElementById('waterForm').addEventListener('submit', async (event) => {
-        event.preventDefault();
-        const form = event.currentTarget;
-        const person = getSelectedPerson();
-        if (!person) return;
-        const payload = {
-          id: cryptoId('water'),
-          date: form.date.value,
-          read: form.read.valueAsNumber
-        };
-        const isBaseline = isBaselineDate(person, 'water', payload.date);
-        const averagePrice = form.averagePrice.valueAsNumber;
-        if (!isBaseline) payload.averagePrice = averagePrice;
-        if (!isValidDateValue(payload.date) || !Number.isFinite(payload.read) ||
-            (!isBaseline && (!Number.isFinite(averagePrice) || averagePrice < 0))) {
-          window.alert('יש להזין תאריך, ערך קריאה ומחיר ממוצע תקינים.');
-          return;
-        }
-        if (!isBaseline) {
-          const sortedWater = [...(person.water || [])].sort((a, b) => new Date(a.date) - new Date(b.date));
-          const lastEntry = sortedWater[sortedWater.length - 1];
-          if (lastEntry && Number.isFinite(lastEntry.read) && payload.read < lastEntry.read) {
-            const confirmed = window.confirm(
-              `ערך הקריאה החדש (${payload.read}) נמוך מהקריאה הקודמת (${lastEntry.read}).\n` +
-              `זה עשוי להצביע על כך שהמונה אופס. האם להמשיך בכל זאת?`
-            );
-            if (!confirmed) return;
-          }
-        }
-        person.water.push(payload);
-        person.water.sort((a, b) => new Date(a.date) - new Date(b.date));
-        form.reset();
-        toggleForm('water', false);
-        await saveData();
-        render();
-      });
+      document.getElementById('waterForm').addEventListener('submit', event => handleReadingSubmit('water', event));
+      document.getElementById('electricityForm').addEventListener('submit', event => handleReadingSubmit('electricity', event));
+    }
 
-      document.getElementById('electricityForm').addEventListener('submit', async (event) => {
-        event.preventDefault();
-        const form = event.currentTarget;
-        const person = getSelectedPerson();
-        if (!person) return;
-        const payload = {
-          id: cryptoId('electricity'),
-          date: form.date.value,
-          read: form.read.valueAsNumber
-        };
-        const isBaseline = isBaselineDate(person, 'electricity', payload.date);
-        const pricePerUnit = form.pricePerUnit.valueAsNumber;
-        const fixedPrice = form.fixedPrice.valueAsNumber;
-        if (!isBaseline) {
-          payload.pricePerUnit = pricePerUnit;
-          payload.fixedPrice = fixedPrice;
-        }
-        if (!isValidDateValue(payload.date) || !Number.isFinite(payload.read) ||
-            (!isBaseline && ![pricePerUnit, fixedPrice].every(value => Number.isFinite(value) && value >= 0))) {
-          window.alert('יש להזין קריאות ומחירים תקינים.');
-          return;
-        }
-        if (!isBaseline) {
-          const sortedElectricity = [...(person.electricity || [])].sort((a, b) => new Date(a.date) - new Date(b.date));
-          const lastEntry = sortedElectricity[sortedElectricity.length - 1];
-          if (lastEntry && Number.isFinite(lastEntry.read) && payload.read < lastEntry.read) {
-            const confirmed = window.confirm(
-              `ערך הקריאה החדש (${payload.read}) נמוך מהקריאה הקודמת (${lastEntry.read}).\n` +
-              `זה עשוי להצביע על כך שהמונה אופס. האם להמשיך בכל זאת?`
-            );
-            if (!confirmed) return;
-          }
-        }
-        person.electricity.push(payload);
-        person.electricity.sort((a, b) => new Date(a.date) - new Date(b.date));
-        form.reset();
-        toggleForm('electricity', false);
-        await saveData();
-        render();
-      });
-
+    async function handleReadingSubmit(kind, event) {
+      event.preventDefault();
+      const form = event.currentTarget;
+      const person = getSelectedPerson();
+      if (!person) return;
+      const payload = {
+        id: cryptoId(kind),
+        date: form.date.value,
+        read: form.read.valueAsNumber
+      };
+      const isBaseline = bills.isBaselineDate(person, kind, payload.date);
+      if (!isBaseline) {
+        form.querySelectorAll('[data-price-field]').forEach(input => {
+          payload[input.name] = input.valueAsNumber;
+        });
+      }
+      if (!bills.validateReadingPayload(payload, kind, isBaseline)) {
+        window.alert('יש להזין תאריך, ערך קריאה ומחירים תקינים.');
+        return;
+      }
+      if (!isBaseline) {
+        const resetWarning = bills.checkMeterReset(person, kind, payload.read);
+        if (resetWarning && !window.confirm(resetWarning)) return;
+      }
+      person[kind].push(payload);
+      person[kind].sort((a, b) => new Date(a.date) - new Date(b.date));
+      form.reset();
+      toggleForm(kind, false);
+      await saveData();
+      render();
     }
 
     async function loadData() {
@@ -1017,7 +968,7 @@
       }
       state.people = people;
       state.selectedPersonId = state.people[0]?.id ?? null;
-      state.activeFilters = { waterDate: null, electricityDate: null };
+      resetFilters();
     }
 
     function isValidPerson(person) {
@@ -1079,7 +1030,7 @@
       const entry = person?.[kind]?.find(item => item.id === id);
       if (!editRow || !entry) return;
 
-      const isBaseline = isFirstReading(person, kind, id);
+      const isBaseline = bills.isFirstReading(person, kind, id);
       const fields = kind === 'water'
         ? ['date', 'read', ...(isBaseline ? [] : ['averagePrice'])]
         : ['date', 'read', ...(isBaseline ? [] : ['pricePerUnit', 'fixedPrice'])];
@@ -1094,7 +1045,7 @@
         window.alert('יש להזין תאריך, קריאות ומחירים תקינים.');
         return;
       }
-      const nextReadingDate = earliestReadingDate(person, kind, id);
+      const nextReadingDate = bills.earliestReadingDate(person, kind, id);
       if (isBaseline && values.date >= nextReadingDate) {
         window.alert('תאריך קריאת הבסיס חייב להישאר לפני כל הקריאות האחרות.');
         return;
@@ -1144,18 +1095,13 @@
       };
       state.people.push(person);
       state.selectedPersonId = person.id;
-      state.activeFilters = { waterDate: null, electricityDate: null };
+      resetFilters();
       saveData();
       render();
     }
 
     function getSelectedPerson() {
       return state.people.find(person => person.id === state.selectedPersonId) || null;
-    }
-
-    function cryptoId(prefix) {
-      const random = Math.random().toString(36).slice(2, 10);
-      return `${prefix}-${Date.now()}-${random}`;
     }
 
     function toggleForm(kind, open) {
@@ -1168,30 +1114,11 @@
       }
     }
 
-    function isBaselineDate(person, kind, date, excludeId = null) {
-      const existing = (person?.[kind] || []).filter(entry => entry.id !== excludeId);
-      if (!existing.length) return true;
-      const earliestDate = existing.reduce((earliest, entry) => entry.date < earliest ? entry.date : earliest, existing[0].date);
-      return isValidDateValue(date) && date < earliestDate;
-    }
-
-    function earliestReadingDate(person, kind, excludeId = null) {
-      return (person?.[kind] || [])
-        .filter(entry => entry.id !== excludeId)
-        .reduce((earliest, entry) => entry.date < earliest ? entry.date : earliest, '9999-12-31');
-    }
-
-    function isFirstReading(person, kind, id) {
-      const entries = [...(person?.[kind] || [])]
-        .sort((left, right) => String(left?.date ?? '').localeCompare(String(right?.date ?? '')));
-      return entries[0]?.id === id;
-    }
-
     function updatePriceFields(kind) {
       const form = document.getElementById(`${kind}Form`);
       const person = getSelectedPerson();
       if (!form || !person) return;
-      const baseline = isBaselineDate(person, kind, form.date.value);
+      const baseline = bills.isBaselineDate(person, kind, form.date.value);
       form.querySelectorAll(`[data-price-field="${kind}"]`).forEach(input => {
         input.closest('label').classList.toggle('hidden', baseline);
         input.required = !baseline;
@@ -1228,43 +1155,43 @@
       personName.textContent = person ? person.name : 'בחר אדם';
 
       if (!person) {
-        document.getElementById('waterSummary').textContent = formatMoney(0);
-        document.getElementById('electricitySummary').textContent = formatMoney(0);
-        document.getElementById('totalSummary').textContent = formatMoney(0);
+        document.getElementById('waterSummary').textContent = bills.formatMoney(0);
+        document.getElementById('electricitySummary').textContent = bills.formatMoney(0);
+        document.getElementById('totalSummary').textContent = bills.formatMoney(0);
         document.getElementById('overviewTable').innerHTML = '<div class="empty-state">לא נבחר אדם.</div>';
         document.getElementById('waterTable').innerHTML = '<div class="empty-state">לא נבחר אדם.</div>';
         document.getElementById('electricityTable').innerHTML = '<div class="empty-state">לא נבחר אדם.</div>';
         return;
       }
 
-      const waterRows = getWaterRows(person);
-      const electricityRows = getElectricityRows(person);
-      const waterTotal = waterRows.reduce((total, entry) => total + (entry.totalAmount ?? 0), 0);
-      const electricityTotal = electricityRows.reduce((total, entry) => total + (entry.totalAmount ?? 0), 0);
+      const waterRows = bills.computeRows(person, 'water');
+      const electricityRows = bills.computeRows(person, 'electricity');
+      const waterTotal = bills.sumTotals(waterRows);
+      const electricityTotal = bills.sumTotals(electricityRows);
 
-      document.getElementById('waterSummary').textContent = formatMoney(waterTotal);
-      document.getElementById('electricitySummary').textContent = formatMoney(electricityTotal);
-      document.getElementById('totalSummary').textContent = formatMoney(waterTotal + electricityTotal);
+      document.getElementById('waterSummary').textContent = bills.formatMoney(waterTotal);
+      document.getElementById('electricitySummary').textContent = bills.formatMoney(electricityTotal);
+      document.getElementById('totalSummary').textContent = bills.formatMoney(waterTotal + electricityTotal);
 
       renderOverviewTable(waterRows, electricityRows);
-      renderWaterTable(waterRows);
-      renderElectricityTable(electricityRows);
+      renderUtilityTable('water', waterRows);
+      renderUtilityTable('electricity', electricityRows);
     }
 
     function renderPersonList() {
       const list = document.getElementById('personList');
       list.innerHTML = state.people.map((person) => {
         const selected = person.id === state.selectedPersonId ? 'selected' : '';
-        const waterRows = getWaterRows(person);
-        const electricityRows = getElectricityRows(person);
-        const total = waterRows.reduce((sum, row) => sum + (row.totalAmount ?? 0), 0) + electricityRows.reduce((sum, row) => sum + (row.totalAmount ?? 0), 0);
+        const waterRows = bills.computeRows(person, 'water');
+        const electricityRows = bills.computeRows(person, 'electricity');
+        const total = bills.sumTotals(waterRows) + bills.sumTotals(electricityRows);
         return `
           <div class="person-card">
             <div class="person-item ${selected}" data-person-id="${escapeHtml(person.id)}">
             <button type="button" class="person-select" data-action="select-person" data-person-id="${escapeHtml(person.id)}">
               <span class="person-name">
                 <span>${escapeHtml(person.name)}</span>
-                <span class="person-meta">${formatMoney(total)} סה"כ</span>
+                <span class="person-meta">${bills.formatMoney(total)} סה"כ</span>
               </span>
             </button>
             <div class="person-actions">
@@ -1282,7 +1209,7 @@
     }
 
     function renderOverviewTable(waterRows, electricityRows) {
-      const combined = buildCombinedPeriods(waterRows, electricityRows);
+      const combined = bills.buildCombinedPeriods(waterRows, electricityRows);
       const rows = combined.slice(0, 6);
       const activeWaterDate = state.activeFilters.waterDate;
       const activeElectricityDate = state.activeFilters.electricityDate;
@@ -1306,10 +1233,10 @@
           <tbody>
             ${rows.map((row) => `
               <tr class="period-row">
-                <td>${formatDate(row.date)}</td>
-                <td class="amount">${formatOptionalMoney(row.waterTotal)}</td>
-                <td class="amount">${formatOptionalMoney(row.electricityTotal)}</td>
-                <td class="amount">${formatMoney(row.total)}</td>
+                 <td>${formatDate(row.date)}</td>
+                 <td class="amount">${bills.formatOptionalMoney(row.waterTotal)}</td>
+                 <td class="amount">${bills.formatOptionalMoney(row.electricityTotal)}</td>
+                 <td class="amount">${bills.formatMoney(row.total)}</td>
                 <td>
                   <div class="action-cluster">
                       <button class="outline-button water-period-filter ${row.date === activeWaterDate ? 'filter-selected' : ''}" type="button" data-action="view-water" data-date="${escapeHtml(row.date)}" aria-pressed="${row.date === activeWaterDate}" ${activeWaterDate && row.date !== activeWaterDate ? 'disabled' : ''}>מים</button>
@@ -1323,206 +1250,30 @@
       `;
     }
 
-    function renderWaterTable(waterRows) {
-      const activeDate = state.activeFilters.waterDate;
-      const filteredRows = (activeDate ? waterRows.filter(row => row.date === activeDate) : waterRows.slice(-6)).slice().reverse();
-      const filterIndicator = document.getElementById('waterFilter');
-      filterIndicator.classList.toggle('hidden', !activeDate);
-      filterIndicator.innerHTML = activeDate ? `מסנן פעיל: ${formatDate(activeDate)} <button type="button" data-action="clear-water-filter">בטל מסנן</button>` : '';
+    function renderUtilityTable(kind, rows) {
+      const activeDate = state.activeFilters[`${kind}Date`];
+      const filteredRows = (activeDate ? rows.filter(row => row.date === activeDate) : rows.slice(-6)).slice().reverse();
+      const filterIndicator = document.getElementById(`${kind}Filter`);
+      bills.renderFilterIndicator(filterIndicator, kind, activeDate);
 
       if (!filteredRows.length) {
-        document.getElementById('waterTable').innerHTML = '<div class="empty-state">לא נמצאו קריאות מים עבור אדם זה.</div>';
+        document.getElementById(`${kind}Table`).innerHTML = `<div class="empty-state">לא נמצאו קריאות ${bills.getUtilityLabel(kind)} עבור אדם זה.</div>`;
         return;
       }
 
-      const header = activeDate ? `<div class="muted" style="margin-bottom:12px;">קריאות מים עבור <strong>${formatDate(activeDate)}</strong></div>` : '';
-      document.getElementById('waterTable').innerHTML = `
+      const header = activeDate ? `<div class="muted" style="margin-bottom:12px;">קריאות ${bills.getUtilityLabel(kind)} עבור <strong>${formatDate(activeDate)}</strong></div>` : '';
+      const headers = TABLE_HEADERS[kind].map(h => `<th>${h}</th>`).join('');
+      document.getElementById(`${kind}Table`).innerHTML = `
         ${header}
         <table>
           <thead>
-            <tr>
-              <th>תאריך</th>
-              <th>קריאה</th>
-              <th>קודמת</th>
-              <th>צריכה</th>
-              <th>מחיר ממוצע</th>
-              <th>סה"כ שימוש</th>
-              <th>סכום</th>
-              <th>פעולות</th>
-            </tr>
+            <tr>${headers}</tr>
           </thead>
           <tbody>
-            ${filteredRows.map((row) => renderReadingRow(row, 'water')).join('')}
+            ${filteredRows.map((row) => bills.renderReadingRow(row, kind, state.editingEntry?.kind === kind && state.editingEntry.id === row.id)).join('')}
           </tbody>
         </table>
       `;
-    }
-
-    function renderElectricityTable(electricityRows) {
-      const activeDate = state.activeFilters.electricityDate;
-      const filteredRows = (activeDate ? electricityRows.filter(row => row.date === activeDate) : electricityRows.slice(-6)).slice().reverse();
-      const filterIndicator = document.getElementById('electricityFilter');
-      filterIndicator.classList.toggle('hidden', !activeDate);
-      filterIndicator.innerHTML = activeDate ? `מסנן פעיל: ${formatDate(activeDate)} <button type="button" data-action="clear-electricity-filter">בטל מסנן</button>` : '';
-
-      if (!filteredRows.length) {
-        document.getElementById('electricityTable').innerHTML = '<div class="empty-state">לא נמצאו קריאות חשמל עבור אדם זה.</div>';
-        return;
-      }
-
-      const header = activeDate ? `<div class="muted" style="margin-bottom:12px;">קריאות חשמל עבור <strong>${formatDate(activeDate)}</strong></div>` : '';
-      document.getElementById('electricityTable').innerHTML = `
-        ${header}
-        <table>
-          <thead>
-            <tr>
-              <th>תאריך</th>
-              <th>קריאה</th>
-              <th>קודמת</th>
-              <th>צריכה</th>
-              <th>מחיר ליחידה</th>
-              <th>קבוע</th>
-              <th>סה"כ</th>
-              <th>פעולות</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${filteredRows.map((row) => renderReadingRow(row, 'electricity')).join('')}
-          </tbody>
-        </table>
-      `;
-    }
-
-    function getWaterRows(person) {
-      const rows = [...(person.water || [])].sort((a, b) => new Date(a.date) - new Date(b.date));
-      return rows.map((entry, index) => {
-        const previousRead = index === 0 ? null : rows[index - 1].read;
-        const usage = previousRead === null ? null : Math.max(0, Number(entry.read) - previousRead);
-        const averagePrice = Number(entry.averagePrice || 0);
-        return {
-          ...entry,
-          isFirst: index === 0,
-          previousRead,
-          usage,
-          averagePrice,
-          totalAmount: usage === null ? null : usage * averagePrice
-        };
-      });
-    }
-
-    function getElectricityRows(person) {
-      const rows = [...(person.electricity || [])].sort((a, b) => new Date(a.date) - new Date(b.date));
-      return rows.map((entry, index) => {
-        const previousRead = index === 0 ? null : rows[index - 1].read;
-        const usage = previousRead === null ? null : Math.max(0, Number(entry.read) - previousRead);
-        const pricePerUnit = Number(entry.pricePerUnit || 0);
-        const fixedPrice = Number(entry.fixedPrice || 0);
-        return {
-          ...entry,
-          isFirst: index === 0,
-          previousRead,
-          usage,
-          pricePerUnit,
-          fixedPrice,
-          totalAmount: usage === null ? null : (usage * pricePerUnit) + fixedPrice
-        };
-      });
-    }
-
-    function renderReadingRow(row, kind) {
-      const isEditing = state.editingEntry?.kind === kind && state.editingEntry.id === row.id;
-      if (isEditing) {
-        const dateInput = `<input class="edit-entry-input" data-field="date" type="date" lang="en" dir="ltr" value="${escapeHtml(row.date)}" required aria-label="תאריך">`;
-        const readInput = `<input class="edit-entry-input" data-field="read" type="number" min="0" step="0.01" value="${escapeHtml(row.read)}" required aria-label="קריאה">`;
-        const prev = `<td>${row.previousRead === null ? '—' : formatNumber(row.previousRead)}${kind === 'electricity' && row.previousRead !== null ? ' kWh' : ''}</td>`;
-        const usage = `<td>${row.usage === null ? '—' : `${formatNumber(row.usage)}${kind === 'electricity' ? ' kWh' : ''}`}</td>`;
-        const rateInput = row.isFirst ? '—' : `<input class="edit-entry-input" data-field="${kind === 'water' ? 'averagePrice' : 'pricePerUnit'}" type="number" min="0" step="any" value="${escapeHtml(kind === 'water' ? row.averagePrice : row.pricePerUnit)}" required aria-label="מחיר">`;
-        const actions = `<td><div class="action-cluster"><button class="primary-button" type="button" data-action="save-entry-edit">שמור</button><button class="ghost-button" type="button" data-action="cancel-entry-edit">ביטול</button></div></td>`;
-        if (kind === 'water') {
-          return `<tr><td>${dateInput}</td><td>${readInput}</td>${prev}${usage}<td>${rateInput}</td><td>${row.usage === null ? '—' : formatNumber(row.usage)}</td><td class="amount">${formatOptionalMoney(row.totalAmount)}</td>${actions}</tr>`;
-        }
-        const fixedInput = row.isFirst ? '—' : `<input class="edit-entry-input" data-field="fixedPrice" type="number" min="0" step="any" value="${escapeHtml(row.fixedPrice)}" required aria-label="תשלום קבוע">`;
-        return `<tr><td>${dateInput}</td><td>${readInput} kWh</td>${prev}${usage}<td>${rateInput}</td><td>${fixedInput}</td><td class="amount">${formatOptionalMoney(row.totalAmount)}</td>${actions}</tr>`;
-      }
-
-      const readValue = `${formatNumber(row.read)}${kind === 'electricity' ? ' kWh' : ''}`;
-      const previousValue = row.previousRead === null
-        ? '—'
-        : `${formatNumber(row.previousRead)}${kind === 'electricity' ? ' kWh' : ''}`;
-      const usageValue = row.usage === null
-        ? '—'
-        : `${formatNumber(row.usage)}${kind === 'electricity' ? ' kWh' : ''}`;
-      const rate = row.isFirst
-        ? '—'
-        : formatOptionalPrice(kind === 'water' ? row.averagePrice : row.pricePerUnit);
-      const extraCell = kind === 'electricity'
-        ? `<td>${row.isFirst ? '—' : formatMoney(row.fixedPrice)}</td>`
-        : `<td>${row.usage === null ? '—' : formatNumber(row.usage)}</td>`;
-      const action = kind === 'water' ? 'edit-water' : 'edit-electricity';
-      const removeAction = kind === 'water' ? 'remove-water' : 'remove-electricity';
-      return `<tr>
-        <td>${formatDate(row.date)}</td>
-        <td>${readValue}</td>
-        <td>${previousValue}</td>
-        <td>${usageValue}</td>
-        <td>${rate}</td>
-        ${extraCell}
-        <td class="amount">${formatOptionalMoney(row.totalAmount)}</td>
-        <td><div class="action-cluster">
-          <button class="ghost-button" type="button" data-action="${action}" data-id="${escapeHtml(row.id)}" aria-label="ערוך קריאה">ערוך</button>
-          <button class="danger-button" type="button" data-action="${removeAction}" data-id="${escapeHtml(row.id)}">הסר</button>
-        </div></td>
-      </tr>`;
-    }
-
-    function buildCombinedPeriods(waterRows, electricityRows) {
-      const periods = new Map();
-      for (const row of waterRows) {
-        if (!periods.has(row.date)) {
-          periods.set(row.date, { date: row.date, waterTotal: row.totalAmount, electricityTotal: 0, hasElectricity: false });
-        }
-      }
-      for (const row of electricityRows) {
-        const period = periods.get(row.date);
-        if (period) {
-          if (!period.hasElectricity) {
-            period.electricityTotal = row.totalAmount;
-            period.hasElectricity = true;
-          }
-        } else {
-          periods.set(row.date, { date: row.date, waterTotal: 0, electricityTotal: row.totalAmount, hasElectricity: true });
-        }
-      }
-      return [...periods.values()]
-        .sort((left, right) => right.date.localeCompare(left.date))
-        .map(({ hasElectricity, ...period }) => ({ ...period, total: (period.waterTotal ?? 0) + (period.electricityTotal ?? 0) }));
-    }
-
-    function formatDate(value) {
-      if (!value) return '—';
-      const date = new Date(`${value}T00:00:00`);
-      const formatted = Number.isNaN(date.getTime())
-        ? String(value)
-        : date.toLocaleDateString('he-IL', { day: '2-digit', month: 'short', year: 'numeric' });
-      return escapeHtml(formatted);
-    }
-
-    function formatNumber(value) {
-      return Number.isFinite(value) ? Number(value).toFixed(2) : '0.00';
-    }
-
-    function formatOptionalMoney(value) {
-      return value == null ? '—' : formatMoney(value);
-    }
-
-    function formatOptionalPrice(value) {
-      if (value == null) return '—';
-      return new Intl.NumberFormat(state.rtl ? 'he-IL' : 'en-GB', {
-        style: 'currency',
-        currency: state.currency,
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 20
-      }).format(value);
     }
 
   </script>

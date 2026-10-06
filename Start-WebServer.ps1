@@ -211,27 +211,40 @@ $script = {
         return $backupDir
     }
 
-    function Find-LastBackup {
+    function Get-BackupTimestamp {
+        param([string]$FileName)
+        $match = $FileName -match "(\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2})"
+        if ($match) {
+            $ts = $matches[1].Substring(0, 10) + 'T' + $matches[1].Substring(11).Replace('-', ':')
+            try { return [DateTime]::ParseExact($ts, "yyyy-MM-ddTHH:mm:ss", $null) } catch { }
+        }
+        return $null
+    }
+
+    function Get-BackupFiles {
         param([string]$BackupDir, [string]$BaseName)
         if (-not (Test-Path -LiteralPath $BackupDir -PathType Container)) {
-            return $null
+            return @()
         }
         $safeBaseName = [regex]::Escape($BaseName)
         $pattern = "^${safeBaseName}_\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}(?:\..*)?$"
-        $files = Get-ChildItem -LiteralPath $BackupDir -File |
-            Where-Object { $_.Name -match $pattern }
+        return @(Get-ChildItem -LiteralPath $BackupDir -File | Where-Object { $_.Name -match $pattern })
+    }
+
+    function Get-BackupTime {
+        param([System.IO.FileInfo]$File)
+        $ts = Get-BackupTimestamp $File.Name
+        if ($ts) { return $ts }
+        return $File.LastWriteTime
+    }
+
+    function Find-LastBackup {
+        param([string]$BackupDir, [string]$BaseName)
+        $files = Get-BackupFiles $BackupDir $BaseName
         if (-not $files) {
             return $null
         }
-        $newest = $files | Sort-Object {
-            $match = $_.Name -match "(\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2})"
-            if ($match) {
-                $ts = $matches[1].Substring(0, 10) + 'T' + $matches[1].Substring(11).Replace('-', ':')
-                try { return [DateTime]::ParseExact($ts, "yyyy-MM-ddTHH:mm:ss", $null) } catch { }
-            }
-            return $_.LastWriteTime
-        } -Descending | Select-Object -First 1
-        return $newest
+        return $files | Sort-Object { Get-BackupTime $_ } -Descending | Select-Object -First 1
     }
 
     function Get-BackupFileName {
@@ -265,24 +278,11 @@ $script = {
 
     function Rotate-Backups {
         param([string]$BackupDir, [string]$BaseName, [int]$Keep = 50)
-        if (-not (Test-Path -LiteralPath $BackupDir -PathType Container)) {
-            return
-        }
-        $safeBaseName = [regex]::Escape($BaseName)
-        $pattern = "^${safeBaseName}_\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}(?:\..*)?$"
-        $files = Get-ChildItem -LiteralPath $BackupDir -File |
-            Where-Object { $_.Name -match $pattern }
+        $files = Get-BackupFiles $BackupDir $BaseName
         if ($files.Count -le $Keep) {
             return
         }
-        $toDelete = $files | Sort-Object {
-            $match = $_.Name -match "(\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2})"
-            if ($match) {
-                $ts = $matches[1].Substring(0, 10) + 'T' + $matches[1].Substring(11).Replace('-', ':')
-                try { return [DateTime]::ParseExact($ts, "yyyy-MM-ddTHH:mm:ss", $null) } catch { }
-            }
-            return $_.LastWriteTime
-        } | Select-Object -First ($files.Count - $Keep)
+        $toDelete = $files | Sort-Object { Get-BackupTime $_ } | Select-Object -First ($files.Count - $Keep)
         foreach ($file in $toDelete) {
             try {
                 [IO.File]::Delete($file.FullName)
@@ -418,7 +418,8 @@ $response.OutputStream.Close()
             }
             if (-not $isSharedResource -and
                 $request.HttpMethod -in @("GET", "HEAD") -and
-                $relativePath -notin @("index.html", "data.json", "data.json.gz")) {
+                $relativePath -notin @("index.html", "data.json", "data.json.gz") -and
+                -not $relativePath.EndsWith(".js", [StringComparison]::OrdinalIgnoreCase)) {
                 $response.StatusCode = 404
                 $bytes = [System.Text.Encoding]::UTF8.GetBytes("404 Not Found")
                 $response.OutputStream.Write($bytes, 0, $bytes.Length)
@@ -651,15 +652,7 @@ $response.OutputStream.Close()
                                     if (-not $lastBackup) {
                                         $shouldBackup = $true
                                     } else {
-                                        $lastBackupTime = $null
-                                        $match = $lastBackup.Name -match "(\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2})"
-                                        if ($match) {
-                                            $ts = $matches[1].Substring(0, 10) + 'T' + $matches[1].Substring(11).Replace('-', ':')
-                                            try { $lastBackupTime = [DateTime]::ParseExact($ts, "yyyy-MM-ddTHH:mm:ss", $null) } catch { }
-                                        }
-                                        if (-not $lastBackupTime) {
-                                            $lastBackupTime = $lastBackup.LastWriteTime
-                                        }
+                                        $lastBackupTime = Get-BackupTime $lastBackup
                                         if (((Get-Date) - $lastBackupTime).TotalMinutes -ge $BackupGraceMinutes) {
                                             $shouldBackup = $true
                                         }

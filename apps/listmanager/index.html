@@ -536,18 +536,24 @@
       }
     }
 
+    const INPUT_TYPES = ['text', 'email', 'number', 'date', 'checkbox'];
+
     function getInputType(field) {
-      return ['text', 'email', 'number', 'date', 'checkbox'].includes(field.type) ? field.type : 'text';
+      return INPUT_TYPES.includes(field.type) ? field.type : 'text';
     }
 
     function booleanValue(value) {
       return value === true || value === 1 || (typeof value === 'string' && value.toLowerCase() === 'true');
     }
 
+    function defaultFieldValue(field) {
+      return getInputType(field) === 'checkbox' ? false : '';
+    }
+
     function makeEmptyRecord() {
       const record = {};
       listDocument.schema.fields.forEach(field => {
-        record[field.key] = getInputType(field) === 'checkbox' ? false : '';
+        record[field.key] = defaultFieldValue(field);
       });
       return record;
     }
@@ -672,14 +678,10 @@
       listDocument.schema.fields = nextFields;
       listDocument.records = listDocument.records.map(record => {
         const nextRecord = {};
-        nextFields.forEach(field => {
-          const value = record[field.key];
-          if (value === undefined) {
-            nextRecord[field.key] = getInputType(field) === 'checkbox' ? false : '';
-          } else {
-            nextRecord[field.key] = value;
-          }
-        });
+      nextFields.forEach(field => {
+        const value = record[field.key];
+        nextRecord[field.key] = value === undefined ? defaultFieldValue(field) : value;
+      });
         return nextRecord;
       });
       Object.keys(columnWidths).forEach(key => {
@@ -762,10 +764,9 @@
       const actionsWidth = widths.__actions;
       table += `<col data-column-key="__actions" style="width:${actionsWidth}px"></colgroup><thead><tr><th scope="col" class="ordinal-cell" aria-label="Row number">#</th>`;
 
-      const columnTypes = ['text', 'email', 'number', 'date', 'checkbox'];
       fields.forEach(field => {
         if (columnEditDraft) {
-          const typeOptions = columnTypes
+          const typeOptions = INPUT_TYPES
             .map(type => `<option value="${type}"${type === getInputType(field) ? ' selected' : ''}>${type}</option>`)
             .join('');
           table += `<th><div class="column-editor"><div class="column-editor-top"><input class="column-edit-input" type="text" data-column-part="label" data-column-key="${escapeHtml(field.key)}" value="${escapeHtml(field.label)}" aria-label="Name of ${escapeHtml(field.label)} column" placeholder="Column name"><button class="column-edit-remove" type="button" data-action="remove-column" data-column-key="${escapeHtml(field.key)}" title="Remove the ${escapeHtml(field.label)} column" aria-label="Remove the ${escapeHtml(field.label)} column">✕</button></div><div class="column-editor-bottom"><select class="column-edit-input" data-column-part="type" data-column-key="${escapeHtml(field.key)}" aria-label="Type of ${escapeHtml(field.label)} column">${typeOptions}</select><label class="column-edit-required"><input type="checkbox" data-column-part="required" data-column-key="${escapeHtml(field.key)}"${field.required ? ' checked' : ''}>Required</label></div></div></th>`;
