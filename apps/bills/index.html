@@ -938,6 +938,17 @@
           window.alert('יש להזין תאריך, ערך קריאה ומחיר ממוצע תקינים.');
           return;
         }
+        if (!isBaseline) {
+          const sortedWater = [...(person.water || [])].sort((a, b) => new Date(a.date) - new Date(b.date));
+          const lastEntry = sortedWater[sortedWater.length - 1];
+          if (lastEntry && Number.isFinite(lastEntry.read) && payload.read < lastEntry.read) {
+            const confirmed = window.confirm(
+              `ערך הקריאה החדש (${payload.read}) נמוך מהקריאה הקודמת (${lastEntry.read}).\n` +
+              `זה עשוי להצביע על כך שהמונה אופס. האם להמשיך בכל זאת?`
+            );
+            if (!confirmed) return;
+          }
+        }
         person.water.push(payload);
         person.water.sort((a, b) => new Date(a.date) - new Date(b.date));
         form.reset();
@@ -967,6 +978,17 @@
             (!isBaseline && ![pricePerUnit, fixedPrice].every(value => Number.isFinite(value) && value >= 0))) {
           window.alert('יש להזין קריאות ומחירים תקינים.');
           return;
+        }
+        if (!isBaseline) {
+          const sortedElectricity = [...(person.electricity || [])].sort((a, b) => new Date(a.date) - new Date(b.date));
+          const lastEntry = sortedElectricity[sortedElectricity.length - 1];
+          if (lastEntry && Number.isFinite(lastEntry.read) && payload.read < lastEntry.read) {
+            const confirmed = window.confirm(
+              `ערך הקריאה החדש (${payload.read}) נמוך מהקריאה הקודמת (${lastEntry.read}).\n` +
+              `זה עשוי להצביע על כך שהמונה אופס. האם להמשיך בכל זאת?`
+            );
+            if (!confirmed) return;
+          }
         }
         person.electricity.push(payload);
         person.electricity.sort((a, b) => new Date(a.date) - new Date(b.date));

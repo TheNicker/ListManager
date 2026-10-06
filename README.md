@@ -81,6 +81,16 @@ Both apps have a **Backup** control that writes a copy of the current data file 
 
 The name follows the file the server actually serves, which matters when `-DataFile` renames it, since the page only requests the `data.json` URL; the server reports the real name in the `X-Data-File-Name` response header. Where the copy is stored is chosen by the browser: with the File System Access API the save dialog opens and any folder can be picked, and otherwise the file goes to the browser's configured download location or save dialog.
 
+### Automatic on-save backups
+
+In addition to the manual Backup button, the server automatically writes a backup copy on every successful save, subject to a **5-minute grace window**: if the newest existing automatic backup for that data file is less than 5 minutes old, the save is not backed up again. This prevents a rapid sequence of saves from filling the backup folder.
+
+- **Location**: `apps/<app>/backups/` (one folder per app). These folders are not served over HTTP, so backups are not downloadable by browsers.
+- **Naming**: matches the manual backup convention — `<base>_<YYYY-MM-DD_HH-MM-SS><ext>` where `<base>` is the served file name without extension and `<ext>` is the original extension (`.json` or `.gz`). For example, serving `data.json` produces `data_2026-10-05_10-08-33.json`; serving `Passwords2.gz` produces `Passwords2_2026-10-05_10-08-33.gz`. The content is a byte-for-byte copy of the pre-save state (gzip stays gzip, JSON stays JSON).
+- **Rotation**: the most recent 50 automatic backups per data file are kept. Older matching files are deleted after each new backup is written. Files that do not match the `<base>_<timestamp><ext>` pattern are never touched.
+- **Restore**: manual only — stop the server, copy a backup file from `apps/<app>/backups/` over the data file (or pass it via `-DataFile`), then restart.
+- **Caution**: the `backups/` folders are not ignored by Git. Running `git add -A` would commit timestamped copies of your personal data. Add `apps/*/backups/` to your `.gitignore` if you want to avoid this.
+
 ## Data integrity
 
 Both apps share the ETag polling and conditional-save client logic in `shared/DataIntegrity.js`. The page checks for changes every five seconds and when its tab becomes visible. When another process changes a data file, the app automatically reloads; this discards unsaved browser edits. The server independently rejects stale writes, and saves use an atomic file replacement. The server rejects save bodies larger than 10 MiB and validates each app's document shape.

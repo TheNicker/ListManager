@@ -10,6 +10,9 @@ param (
     [switch]$AllowClientExit
 )
 
+$BackupGraceMinutes = 5
+$BackupRetentionCount = 50
+
 $portMatch = [regex]::Match($Port, '^\s*(?<start>\d{1,5})(?:\s*-\s*(?<end>\d{1,5}))?\s*$')
 if (-not $portMatch.Success) {
     throw "Port must be a number or an inclusive range such as 8080-8090."
@@ -172,6 +175,8 @@ $runspace.SessionStateProxy.SetVariable("EditPasswordHash", $EditPasswordHash)
 $runspace.SessionStateProxy.SetVariable("EditPasswordRequired", $EditPasswordRequired)
 $runspace.SessionStateProxy.SetVariable("AllowClientExit", [bool]$AllowClientExit)
 $runspace.SessionStateProxy.SetVariable("ValidationScriptPaths", $validationScriptPaths)
+$runspace.SessionStateProxy.SetVariable("BackupGraceMinutes", $BackupGraceMinutes)
+$runspace.SessionStateProxy.SetVariable("BackupRetentionCount", $BackupRetentionCount)
 
 # Define the script to run inside the runspace
 $script = {
@@ -190,6 +195,101 @@ $script = {
             return '"' + [BitConverter]::ToString($hash).Replace('-', '').ToLowerInvariant() + '"'
         } finally {
             $sha256.Dispose()
+        }
+    }
+
+    function Get-BackupDirectory {
+        param([string]$AppRoot)
+        $backupDir = Join-Path $AppRoot "backups"
+        if (-not (Test-Path -LiteralPath $backupDir -PathType Container)) {
+            try {
+                New-Item -ItemType Directory -Path $backupDir -Force | Out-Null
+            } catch {
+                Write-Host "[WARN] Could not create backup directory ${backupDir}: $($_.Exception.Message)"
+            }
+        }
+        return $backupDir
+    }
+
+    function Find-LastBackup {
+        param([string]$BackupDir, [string]$BaseName)
+        if (-not (Test-Path -LiteralPath $BackupDir -PathType Container)) {
+            return $null
+        }
+        $safeBaseName = [regex]::Escape($BaseName)
+        $pattern = "^${safeBaseName}_\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}(?:\..*)?$"
+        $files = Get-ChildItem -LiteralPath $BackupDir -File |
+            Where-Object { $_.Name -match $pattern }
+        if (-not $files) {
+            return $null
+        }
+        $newest = $files | Sort-Object {
+            $match = $_.Name -match "(\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2})"
+            if ($match) {
+                $ts = $matches[1].Substring(0, 10) + 'T' + $matches[1].Substring(11).Replace('-', ':')
+                try { return [DateTime]::ParseExact($ts, "yyyy-MM-ddTHH:mm:ss", $null) } catch { }
+            }
+            return $_.LastWriteTime
+        } -Descending | Select-Object -First 1
+        return $newest
+    }
+
+    function Get-BackupFileName {
+        param([string]$DataFilePath, [DateTime]$Date)
+        $fileName = [IO.Path]::GetFileName($DataFilePath)
+        $extension = [IO.Path]::GetExtension($fileName)
+        $baseName = $fileName.Substring(0, $fileName.Length - $extension.Length)
+        $timestamp = $Date.ToString("yyyy-MM-dd_HH-mm-ss")
+        $candidate = "${baseName}_${timestamp}${extension}"
+        return $candidate
+    }
+
+    function Get-UniqueBackupFileName {
+        param([string]$BackupDir, [string]$BaseName, [string]$Extension)
+        $timestamp = (Get-Date).ToString("yyyy-MM-dd_HH-mm-ss")
+        $candidate = "${BaseName}_${timestamp}${Extension}"
+        $fullPath = Join-Path $BackupDir $candidate
+        if (-not (Test-Path -LiteralPath $fullPath -PathType Leaf)) {
+            return $candidate
+        }
+        $suffix = 1
+        while ($true) {
+            $candidate = "${BaseName}_${timestamp}-${suffix}${Extension}"
+            $fullPath = Join-Path $BackupDir $candidate
+            if (-not (Test-Path -LiteralPath $fullPath -PathType Leaf)) {
+                return $candidate
+            }
+            $suffix++
+        }
+    }
+
+    function Rotate-Backups {
+        param([string]$BackupDir, [string]$BaseName, [int]$Keep = 50)
+        if (-not (Test-Path -LiteralPath $BackupDir -PathType Container)) {
+            return
+        }
+        $safeBaseName = [regex]::Escape($BaseName)
+        $pattern = "^${safeBaseName}_\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}(?:\..*)?$"
+        $files = Get-ChildItem -LiteralPath $BackupDir -File |
+            Where-Object { $_.Name -match $pattern }
+        if ($files.Count -le $Keep) {
+            return
+        }
+        $toDelete = $files | Sort-Object {
+            $match = $_.Name -match "(\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2})"
+            if ($match) {
+                $ts = $matches[1].Substring(0, 10) + 'T' + $matches[1].Substring(11).Replace('-', ':')
+                try { return [DateTime]::ParseExact($ts, "yyyy-MM-ddTHH:mm:ss", $null) } catch { }
+            }
+            return $_.LastWriteTime
+        } | Select-Object -First ($files.Count - $Keep)
+        foreach ($file in $toDelete) {
+            try {
+                [IO.File]::Delete($file.FullName)
+                Write-Host "[INFO] Rotated old backup: $($file.Name)"
+            } catch {
+                Write-Host "[WARN] Could not delete old backup ${file.FullName}: $($_.Exception.Message)"
+            }
         }
     }
 
@@ -540,6 +640,41 @@ $response.OutputStream.Close()
                                 $backupPath = "$targetPath.$([Guid]::NewGuid().ToString('N')).bak"
                                 [IO.File]::Replace($tempPath, $targetPath, $backupPath)
                                 $tempPath = $null
+
+                                # Automatic backup with 5-minute grace window
+                                try {
+                                    $baseName = [IO.Path]::GetFileNameWithoutExtension($targetPath)
+                                    $extension = [IO.Path]::GetExtension($targetPath)
+                                    $backupDir = Get-BackupDirectory $appRoot
+                                    $lastBackup = Find-LastBackup $backupDir $baseName
+                                    $shouldBackup = $false
+                                    if (-not $lastBackup) {
+                                        $shouldBackup = $true
+                                    } else {
+                                        $lastBackupTime = $null
+                                        $match = $lastBackup.Name -match "(\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2})"
+                                        if ($match) {
+                                            $ts = $matches[1].Substring(0, 10) + 'T' + $matches[1].Substring(11).Replace('-', ':')
+                                            try { $lastBackupTime = [DateTime]::ParseExact($ts, "yyyy-MM-ddTHH:mm:ss", $null) } catch { }
+                                        }
+                                        if (-not $lastBackupTime) {
+                                            $lastBackupTime = $lastBackup.LastWriteTime
+                                        }
+                                        if (((Get-Date) - $lastBackupTime).TotalMinutes -ge $BackupGraceMinutes) {
+                                            $shouldBackup = $true
+                                        }
+                                    }
+                                    if ($shouldBackup -and [IO.File]::Exists($backupPath)) {
+                                        $backupFileName = Get-UniqueBackupFileName $backupDir $baseName $extension
+                                        $destPath = Join-Path $backupDir $backupFileName
+                                        Move-Item -LiteralPath $backupPath -Destination $destPath -Force
+                                        Write-Host "[INFO] Backup written: $destPath"
+                                        Rotate-Backups $backupDir $baseName $BackupRetentionCount
+                                        $backupPath = $null
+                                    }
+                                } catch {
+                                    Write-Host "[WARN] Automatic backup failed: $($_.Exception.Message)"
+                                }
                             } else {
                                 [IO.File]::Move($tempPath, $targetPath)
                                 $tempPath = $null

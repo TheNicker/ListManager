@@ -1,52 +1,230 @@
 {
-    "people": [
+  "people": [
+    {
+      "id": "person-sample-01",
+      "name": "נועה לדוגמה",
+      "phone": "050-0000001",
+      "address": "רחוב הדוגמה 10",
+      "water": [
         {
-            "id": "person-sample-01",
-            "name": "נועה לדוגמה",
-            "phone": "050-0000001",
-            "address": "רחוב הדוגמה 10",
-            "water": [
-                { "id": "water-01-1", "date": "2026-01-15", "read": 1042 },
-                { "id": "water-01-2", "date": "2026-04-18", "read": 1136, "averagePrice": 10.15 },
-                { "id": "water-01-3", "date": "2026-07-19", "read": 1203, "averagePrice": 10.6 },
-                { "id": "water-01-4", "date": "2026-10-03", "read": 1281, "averagePrice": 11.05 }
-            ],
-            "electricity": [
-                { "id": "electricity-01-1", "date": "2026-01-15", "read": 22140 },
-                { "id": "electricity-01-2", "date": "2026-04-18", "read": 22905, "pricePerUnit": 0.6432, "fixedPrice": 15 },
-                { "id": "electricity-01-3", "date": "2026-07-19", "read": 24310, "pricePerUnit": 0.6432, "fixedPrice": 15 },
-                { "id": "electricity-01-4", "date": "2026-10-03", "read": 25188, "pricePerUnit": 0.6432, "fixedPrice": 15 }
-            ]
+          "id": "water-01-1",
+          "date": "2026-01-15",
+          "read": 1042
         },
         {
-            "id": "person-sample-02",
-            "name": "איתי לדוגמה",
-            "phone": "050-0000002",
-            "address": "רחוב הדוגמה 20",
-            "water": [
-                { "id": "water-02-1", "date": "2026-02-08", "read": 615 },
-                { "id": "water-02-2", "date": "2026-06-11", "read": 742, "averagePrice": 10.4 },
-                { "id": "water-02-3", "date": "2026-09-12", "read": 861, "averagePrice": 11.3 }
-            ],
-            "electricity": [
-                { "id": "electricity-02-1", "date": "2026-02-08", "read": 9840 },
-                { "id": "electricity-02-2", "date": "2026-06-11", "read": 10960, "pricePerUnit": 0.6432, "fixedPrice": 15 },
-                { "id": "electricity-02-3", "date": "2026-09-12", "read": 11874, "pricePerUnit": 0.6432, "fixedPrice": 15 }
-            ]
+          "id": "water-01-2",
+          "date": "2026-04-18",
+          "read": 1136,
+          "averagePrice": 10.15
         },
         {
-            "id": "person-sample-03",
-            "name": "מאיה לדוגמה",
-            "phone": "050-0000003",
-            "address": "רחוב הדוגמה 30",
-            "water": [
-                { "id": "water-03-1", "date": "2026-05-02", "read": 2310 },
-                { "id": "water-03-2", "date": "2026-08-06", "read": 2455, "averagePrice": 10.85 }
-            ],
-            "electricity": [
-                { "id": "electricity-03-1", "date": "2026-05-02", "read": 4120 },
-                { "id": "electricity-03-2", "date": "2026-08-06", "read": 4735, "pricePerUnit": 0.6432, "fixedPrice": 15 }
-            ]
+          "id": "water-01-3",
+          "date": "2026-07-19",
+          "read": 1203,
+          "averagePrice": 10.6
+        },
+        {
+          "id": "water-1791229326558-zvfv9lcs",
+          "date": "2026-07-20",
+          "read": 1300,
+          "averagePrice": 11
+        },
+        {
+          "id": "water-1791267859310-fugpnh2m",
+          "date": "2026-07-25",
+          "read": 800,
+          "averagePrice": 25
+        },
+        {
+          "id": "water-1791229809507-xerpgra6",
+          "date": "2026-07-30",
+          "read": 1400,
+          "averagePrice": 12
+        },
+        {
+          "id": "water-1791229823117-5r7ef5he",
+          "date": "2026-07-31",
+          "read": 1500,
+          "averagePrice": 12
+        },
+        {
+          "id": "water-1791229855662-0bpmhcfj",
+          "date": "2026-08-01",
+          "read": 1000,
+          "averagePrice": 11
         }
-    ]
+      ],
+      "electricity": [
+        {
+          "id": "electricity-01-1",
+          "date": "2026-01-15",
+          "read": 22140
+        },
+        {
+          "id": "electricity-01-2",
+          "date": "2026-04-18",
+          "read": 22905,
+          "pricePerUnit": 0.6432,
+          "fixedPrice": 15
+        },
+        {
+          "id": "electricity-01-3",
+          "date": "2026-07-19",
+          "read": 24310,
+          "pricePerUnit": 0.6432,
+          "fixedPrice": 15
+        },
+        {
+          "id": "electricity-01-4",
+          "date": "2026-10-03",
+          "read": 25188,
+          "pricePerUnit": 0.6432,
+          "fixedPrice": 15
+        },
+        {
+          "id": "electricity-1791267889809-q47zkbxm",
+          "date": "2026-10-05",
+          "read": 24000,
+          "pricePerUnit": 12,
+          "fixedPrice": 12
+        },
+        {
+          "id": "electricity-1791229931860-1ykyi46u",
+          "date": "2026-10-10",
+          "read": 26000,
+          "pricePerUnit": 0.6432,
+          "fixedPrice": 15
+        }
+      ]
+    },
+    {
+      "id": "person-sample-02",
+      "name": "איתי לדוגמה",
+      "phone": "050-0000002",
+      "address": "רחוב הדוגמה 20",
+      "water": [
+        {
+          "id": "water-02-1",
+          "date": "2026-02-08",
+          "read": 615
+        },
+        {
+          "id": "water-02-2",
+          "date": "2026-06-11",
+          "read": 742,
+          "averagePrice": 10.4
+        },
+        {
+          "id": "water-02-3",
+          "date": "2026-09-12",
+          "read": 861,
+          "averagePrice": 11.3
+        }
+      ],
+      "electricity": [
+        {
+          "id": "electricity-02-1",
+          "date": "2026-02-08",
+          "read": 9840
+        },
+        {
+          "id": "electricity-02-2",
+          "date": "2026-06-11",
+          "read": 10960,
+          "pricePerUnit": 0.6432,
+          "fixedPrice": 15
+        },
+        {
+          "id": "electricity-02-3",
+          "date": "2026-09-12",
+          "read": 11874,
+          "pricePerUnit": 0.6432,
+          "fixedPrice": 15
+        }
+      ]
+    },
+    {
+      "id": "person-sample-03",
+      "name": "מאיה לדוגמה",
+      "phone": "050-0000003",
+      "address": "רחוב הדוגמה 30",
+      "water": [
+        {
+          "id": "water-03-1",
+          "date": "2026-05-02",
+          "read": 2310
+        },
+        {
+          "id": "water-03-2",
+          "date": "2026-08-06",
+          "read": 2455,
+          "averagePrice": 10.85
+        }
+      ],
+      "electricity": [
+        {
+          "id": "electricity-03-1",
+          "date": "2026-05-02",
+          "read": 4120
+        },
+        {
+          "id": "electricity-03-2",
+          "date": "2026-08-06",
+          "read": 4735,
+          "pricePerUnit": 0.6432,
+          "fixedPrice": 15
+        }
+      ]
+    },
+    {
+      "id": "person-1791218934260-1ha405p1",
+      "name": "שני",
+      "phone": "",
+      "address": "",
+      "water": [
+        {
+          "id": "water-1791218948070-jvya87kk",
+          "date": "1982-12-03",
+          "read": 12
+        },
+        {
+          "id": "water-1791221595665-6rnludg6",
+          "date": "1982-12-03",
+          "read": 12,
+          "averagePrice": 12
+        },
+        {
+          "id": "water-1791221618802-00pnez9e",
+          "date": "2023-12-12",
+          "read": 65,
+          "averagePrice": 65
+        },
+        {
+          "id": "water-1791218964528-oo57n4rb",
+          "date": "2026-08-07",
+          "read": 12,
+          "averagePrice": 12
+        },
+        {
+          "id": "water-1791219067013-f16zcsw1",
+          "date": "2026-12-12",
+          "read": 12,
+          "averagePrice": 12
+        },
+        {
+          "id": "water-1791219075483-8jq73j1w",
+          "date": "2027-10-10",
+          "read": 12,
+          "averagePrice": 12
+        },
+        {
+          "id": "water-1791221628043-dy4h7ykt",
+          "date": "2027-12-12",
+          "read": 12,
+          "averagePrice": 12
+        }
+      ],
+      "electricity": []
+    }
+  ]
 }
